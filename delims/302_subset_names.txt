@@ -1,0 +1,1813 @@
+Revised_Source_Niche name
+Food TEA_W2_16
+Food AUSMDU00070144
+Food TEA_W2_50
+Food SRR5512247
+Food TEA_A2_59
+Food TEA_A4_37
+Food TEA_W4_35
+Food TEA_W2_47
+Food TEA_W2_31
+Food TEA_C1_13
+Food TEA_C2_45
+Food TEA_A1_38
+Food SRR4241812
+Food TEA_W1_2
+Food TEA_W4_30
+Food TEA_C4_42
+Food TEA_A2_19
+Food TEA_A4_16
+Food TEA_W3_73
+Food TEA_A4_2
+Food TEA_A1_44
+Food TEA_C1_91
+Food TEA_W3_57
+Food TEA_A2_7
+Food TEA_C4_86
+Food TEA_A3_70
+Food TEA_W3_62
+Food TEA_A3_61
+Food TEA_C4_43
+Food TEA_A3_16
+Food TEA_W2_83
+Food TEA_A3_52
+Food TEA_A2_8
+Food TEA_A3_58
+Food TEA_W1_66
+Food TEA_A2_36
+Food TEA_C4_95
+Food TEA_C4_34
+Food TEA_W3_24
+Food TEA_C4_44
+Food TEA_A3_5
+Food TEA_C2_58
+Food TEA_C2_34
+Food TEA_A2_5
+Food TEA_C4_38
+Food TEA_A4_11
+Food TEA_C3_70
+Food TEA_C3_15
+Food SRR4241819
+Food TEA_C1_10
+Food TEA_W3_20
+Food TEA_A3_11
+Food TEA_C2_44
+Food SRR5512178
+Food TEA_A3_74
+Food TEA_C4_36
+Food TEA_A3_41
+Food TEA_A1_25
+Food TEA_A1_14
+Food SRR4241806
+Food TEA_C2_22
+Food TEA_A3_17
+Food TEA_W2_37
+Food TEA_A3_45
+Food TEA_C2_106
+Food TEA_W3_17
+Food TEA_A4_32
+Food TEA_WA14
+Food SRR4241804
+Food TEA_WA25
+Food SRR5512151
+Food TEA_C1_111
+Food TEA_A3_48
+Food TEA_C1_119
+Food TEA_A4_29
+Food TEA_C1_30
+Food TEA_C4_32
+Food TEA_W3_67
+Food TEA_C3_30
+Food TEA_C4_41
+Food TEA_C2_18
+Food TEA_C4_52
+Food TEA_C3_65
+Food TEA_A4_49
+Food TEA_A2_58
+Food TEA_C3_71
+Food TEA_W3_63
+Food TEA_W4_32
+Food TEA_W2_75
+Food TEA_W4_59
+Food SRR5512153
+Food SRR4241808
+Food SRR4241809
+Food TEA_W2_9
+Food SRR4241817
+Food TEA_C3_29
+Food TEA_WA27
+Food TEA_C2_38
+Food TEA_W1_58
+Food TEA_C4_35
+Food TEA_A2_30
+Food TEA_W1_33
+Food TEA_W4_36
+Food TEA_C2_94
+Food TEA_C1_1
+Food TEA_C1_51
+Food TEA_A2_46
+Food TEA_C3_22
+Food TEA_A3_8
+Food TEA_C4_85
+Food TEA_A4_57
+Food TEA_W4_33
+Food TEA_C4_33
+Food TEA_C1_110
+Food TEA_A4_5
+Food SRR4241810
+Food TEA_W1_69
+Food TEA_W4_68
+Food TEA_C3_7
+Food TEA_C3_10
+Food SRR5512179
+Food SRR5512180
+Food SRR5512183
+Food TEA_WA1
+Food TEA_C2_53
+Food TEA_A2_22
+Food TEA_C2_12
+Food TEA_C2_41
+Food TEA_C2_110
+Food TEA_C2_97
+Food TEA_C2_68
+Food TEA_W2_78
+Food TEA_A1_28
+Food TEA_W4_48
+Food AusGEM_01966
+Food TEA_C4_19
+Food TEA_A4_3
+Food TEA_C3_37
+Food TEA_W3_59
+Food TEA_C3_12
+Food TEA_C2_100
+Food TEA_C1_90
+Food TEA_A3_62
+Food TEA_W2_87
+Food TEA_W2_77
+Food TEA_C2_14
+Food TEA_A1_45
+Food TEA_W2_68
+Food TEA_W4_20
+Food TEA_W2_41
+Food TEA_A2_31
+Food SRR4241814
+Food TEA_A2_35
+Food TEA_A3_64
+Food SRR5512181
+Food TEA_W3_2
+Food TEA_A3_23
+Food TEA_W4_55
+Food TEA_W3_35
+Food TEA_W4_39
+Food TEA_C2_102
+Food TEA_C2_16
+Food TEA_C4_24
+Food TEA_A4_35
+Food TEA_W2_79
+Food TEA_C2_103
+Food TEA_W4_17
+Food TEA_A1_29
+Food TEA_W2_80
+Food TEA_A1_20
+Food TEA_C3_6
+Food TEA_A2_10
+Food TEA_WA5
+Food TEA_W1_67
+Food TEA_C3_72
+Food TEA_W4_22
+Food SRR5512177
+Food TEA_WA2
+Food TEA_C3_43
+Food TEA_A1_31
+Food TEA_A2_47
+Food TEA_C4_94
+Food TEA_W2_4
+Food TEA_A2_41
+Food TEA_A4_15
+Food TEA_C4_97
+Food TEA_C4_39
+Food TEA_C4_21
+Food TEA_A1_49
+Food TEA_A2_33
+Food TEA_C3_39
+Food TEA_A2_2
+Food TEA_C4_2
+Food TEA_A4_50
+Food TEA_A1_33
+Food TEA_C1_38
+Food TEA_C1_101
+Food TEA_W4_1
+Food TEA_A4_28b
+Food TEA_W2_53
+Food TEA_C1_121
+Food TEA_C2_93
+Food TEA_C1_4
+Food SRR4241807
+Food TEA_C3_3
+Food TEA_W2_76
+Food TEA_A3_9
+Food TEA_W1_76
+Food TEA_W1_57b
+Food TEA_A4_61
+Food TEA_W3_33
+Food TEA_A3_22
+Food TEA_C3_2
+Food TEA_A1_66
+Food TEA_A3_18
+Food TEA_C1_15
+Food TEA_A4_27
+Food AusGEM_01964
+Food TEA_W4_34
+Food TEA_W2_51
+Food TEA_C3_27
+Food SRR4241802
+Food SRR4241803
+Food TEA_C1_72
+Food TEA_A2_17
+Food TEA_W2_28
+Food TEA_A3_60
+Food TEA_W3_58
+Food TEA_C4_56
+Food TEA_WA26
+Food TEA_C2_13
+Food TEA_A4_14
+Food TEA_C4_48
+Food TEA_A2_49
+Food TEA_C4_89
+Food TEA_C1_36
+Food TEA_C1_33
+Food TEA_W4_40
+Food TEA_C1_61
+Food TEA_A2_40
+Food TEA_C1_3
+Food TEA_A3_36
+Food TEA_C1_66
+Food TEA_A3_31
+Food TEA_C2_108
+Food TEA_C1_123
+Food TEA_C3_19
+Food TEA_WA17
+Food TEA_C4_53
+Food TEA_A1_1
+Food TEA_A1_42
+Food TEA_W3_32
+Food TEA_W1_65
+Food TEA_A3_59
+Food AusGEM_01965
+Food SRR4241813
+Food TEA_C1_102
+Food TEA_A1_30
+Food TEA_C4_100
+Food TEA_C2_27
+Food TEA_W3_72
+Food TEA_A4_9
+Food TEA_C4_93
+Food TEA_C3_40
+Food TEA_C1_84
+Food TEA_A2_14
+Food TEA_A2_15
+Food TEA_C1_89
+Food TEA_C3_59
+Food TEA_W2_49
+Food TEA_A4_33
+Food TEA_W1_37
+Food TEA_W1_36
+Food TEA_C3_28
+Food TEA_W4_8
+Food AusGEM_01963
+Food TEA_C3_8
+Food TEA_C2_46
+Food TEA_A2_32
+Food TEA_C1_46
+Food TEA_C2_115
+Food TEA_A1_40
+Food TEA_W4_37
+Food TEA_A1_12
+Food TEA_C3_9
+Food TEA_W2_56
+Food TEA_W3_61
+Food TEA_A4_12
+Food TEA_C1_95
+Food TEA_C2_117
+Food TEA_W1_79
+Food TEA_C4_17
+Food TEA_C4_65
+Food TEA_A3_67
+Food TEA_A2_3
+Food TEA_C3_36
+Food TEA_C1_79
+Food AusGEM_01967
+Food TEA_A3_32
+Food TEA_W4_61
+Food TEA_W1_32
+Food TEA_A3_57
+Environmental TEA_E4931
+Environmental TEA_E5356
+Environmental TEA_E2062
+Environmental SRR13569285
+Environmental TEA_E2075
+Environmental TEA_E7412
+Environmental SRR13735335
+Environmental TEA_E9208
+Environmental SRR13756211
+Environmental TEA_1330_2_1_WA_Bloom
+Environmental SRR13568495
+Environmental TEA_E2079
+Environmental TEA_E5993
+Environmental TEA_E5598
+Environmental TEA_242_3_Brisbane
+Environmental TEA_E8610
+Environmental TEA_242_6_Brisbane
+Environmental TEA_E4068
+Environmental SRR13576332
+Environmental TEA_E4679
+Environmental TEA_E2469
+Environmental TEA_E7193
+Environmental TEA_E4766
+Environmental SRR13735234
+Environmental TEA_E4921
+Environmental TEA_E5476
+Environmental TEA_E8647
+Environmental SRR13593760
+Environmental TEA_E5631
+Environmental SRR13569287
+Environmental TEA_E5895
+Environmental TEA_E600
+Environmental SRR4241841
+Environmental TEA_E7411
+Environmental TEA_E7253
+Environmental TEA_E6389
+Environmental TEA_E3340
+Environmental TEA_E8492
+Environmental TEA_E5753
+Environmental TEA_H1513191_2
+Environmental TEA_E3809
+Environmental TEA_E9872
+Environmental TEA_E8084
+Environmental TEA_E2851
+Environmental TEA_H1508309
+Environmental TEA_E8416
+Environmental SRR13558172
+Environmental TEA_E8580
+Environmental SRR13568492
+Environmental SRR13735220
+Environmental TEA_E2047
+Environmental SRR13569279
+Environmental AUSMDU00056156
+Environmental SRR13576153
+Environmental TEA_E7591
+Environmental TEA_E5129
+Environmental TEA_E8659
+Environmental TEA_E2408
+Environmental TEA_E1358
+Environmental TEA_E7615
+Environmental TEA_E9141
+Environmental TEA_E1215
+Environmental TEA_E9791
+Environmental TEA_E5493
+Environmental TEA_E3071
+Environmental TEA_E2873
+Environmental TEA_E5472
+Environmental TEA_E9796
+Environmental SRR13735334
+Environmental TEA_E4486
+Environmental TEA_E9644
+Environmental TEA_E9180
+Environmental TEA_E5627
+Environmental TEA_E1426
+Environmental TEA_YarraTap_3
+Environmental TEA_E2524
+Environmental TEA_E6042
+Environmental TEA_E4980
+Environmental TEA_E9742
+Environmental TEA_E5795
+Environmental SRR13753102
+Environmental SRR13593798
+Environmental TEA_E2540
+Environmental TEA_E2032
+Environmental TEA_E2048
+Environmental TEA_E8769
+Environmental TEA_H1513183
+Environmental TEA_E2016
+Environmental SRR13735211
+Environmental TEA_E7147
+Environmental SRR13558083
+Environmental SRR13593801
+Environmental TEA_E5633
+Environmental TEA_E2029
+Environmental TEA_E9802
+Environmental TEA_Soil_1
+Environmental SRR13593800
+Environmental TEA_E2085
+Environmental TEA_E9213
+Environmental TEA_E5629
+Environmental SRR13593764
+Environmental SRR13558047
+Environmental SRR4241874
+Environmental TEA_E5359
+Environmental TEA_E5405
+Environmental TEA_E3466
+Environmental TEA_E5008
+Environmental TEA_E8811
+Environmental TEA_E8487
+Environmental TEA_E5938
+Environmental TEA_E2893
+Environmental TEA_E9855
+Environmental TEA_E7645
+Environmental TEA_E9465
+Environmental TEA_E3885
+Environmental TEA_E5636
+Environmental TEA_H1512653_1
+Environmental SRR13735210
+Environmental TEA_E2059
+Environmental TEA_E7041
+Environmental TEA_E7618
+Environmental SRR13568497
+Environmental TEA_E8600
+Environmental TEA_E9202
+Environmental TEA_E9567
+Environmental TEA_E5555
+Environmental TEA_E9182
+Environmental TEA_E9870
+Environmental TEA_E7542
+Environmental TEA_E7727
+Environmental TEA_E9576
+Environmental TEA_E7553
+Environmental TEA_E7207
+Environmental TEA_E2853
+Environmental TEA_E2427
+Environmental TEA_E9303
+Environmental TEA_E2038
+Environmental TEA_E2074
+Environmental TEA_E5203
+Environmental TEA_E7267
+Environmental TEA_E7112
+Environmental TEA_E5150
+Environmental TEA_E9138
+Environmental AusGEM_01968
+Environmental TEA_E2558
+Environmental TEA_E1460
+Environmental TEA_E5548
+Environmental SRR13753802
+Environmental SRR13568494
+Environmental TEA_E7180
+Environmental TEA_E8612
+Environmental TEA_E2590
+Environmental SRR13576333
+Environmental TEA_E4963
+Environmental TEA_E9273
+Environmental TEA_E5260
+Environmental TEA_E5183
+Environmental TEA_E2035
+Environmental SRR13569286
+Environmental TEA_E5562
+Environmental TEA_E4712
+Environmental TEA_E2516
+Environmental TEA_E4259
+Environmental TEA_E7564
+Environmental TEA_E2003
+Environmental SRR13735219
+Environmental TEA_E8766
+Environmental TEA_E2712
+Environmental SRR13735337
+Environmental TEA_E7185
+Environmental SRR13569284
+Environmental TEA_Soil_3
+Environmental TEA_E7242
+Environmental SRR13576330
+Environmental TEA_Soil_5
+Environmental TEA_E4726
+Environmental TEA_2099_2_1
+Environmental TEA_E5953
+Environmental SRR13569278
+Environmental TEA_E9472
+Environmental TEA_E9693
+Environmental TEA_E8660
+Environmental SRR13593799
+Environmental TEA_E2810
+Environmental TEA_E5623
+Environmental TEA_E9254
+Environmental TEA_E5021
+Environmental TEA_E2508
+Environmental SRR13576154
+Environmental SRR13753803
+Environmental TEA_E8621
+Environmental TEA_E2061
+Environmental TEA_E7355
+Environmental TEA_E9427
+Environmental TEA_SYD_1_2
+Environmental TEA_E2025
+Environmental TEA_E2009
+Environmental TEA_E8848
+Environmental TEA_E5976
+Environmental TEA_E7562
+Environmental AUSMDU00037793
+Environmental TEA_E7322
+Environmental SRR13735207
+Environmental TEA_E4906
+Environmental SRR13735208
+Environmental TEA_E6249
+Environmental TEA_E2814
+Environmental TEA_E7715
+Environmental SRR13753397
+Environmental SRR13753396
+Environmental TEA_E2938
+Environmental TEA_E4173
+Environmental SRR13569283
+Environmental TEA_E7648
+Environmental TEA_E9890
+Environmental TEA_E7285
+Environmental TEA_E6882
+Environmental TEA_E4970
+Environmental TEA_H1512651
+Environmental TEA_E2549
+Environmental TEA_E5456
+Environmental TEA_E6705
+Environmental TEA_E8279
+Environmental TEA_E7603
+Environmental TEA_E4770
+Environmental TEA_E6007
+Environmental TEA_E6062
+Environmental TEA_E7188
+Environmental TEA_Bris_5B
+Environmental TEA_E3094
+Environmental TEA_E5415
+Environmental TEA_E5939
+Environmental SRR13593761
+Environmental TEA_E2482
+Environmental TEA_E4150
+Environmental TEA_E4206
+Environmental TEA_E9207
+Environmental TEA_E5448
+Environmental TEA_E6003
+Environmental SRR4241843
+Environmental TEA_E7861
+Environmental TEA_E5955
+Environmental TEA_H1513216
+Environmental TEA_E9345
+Environmental SRR13569282
+Environmental TEA_2099_1_2
+Environmental TEA_E9650
+Environmental TEA_E8488
+Environmental TEA_E9781
+Environmental TEA_E8382
+Environmental TEA_E8856
+Environmental SRR13558045
+Environmental TEA_H1512649
+Environmental TEA_Soil_4
+Environmental SRR4241875
+Environmental TEA_E3628
+Environmental TEA_H1512653_2
+Environmental TEA_E7087
+Environmental TEA_E4665
+Environmental TEA_E7143
+Environmental SRR13558082
+Environmental TEA_E8495
+Environmental TEA_E4478
+Environmental TEA_E6387
+Environmental TEA_E2014
+Environmental TEA_Bris_2W
+Environmental TEA_E7812
+Environmental TEA_E2476
+Environmental TEA_327_1
+Environmental TEA_E2848
+Environmental TEA_E2018
+Environmental TEA_E9319
+Environmental TEA_E9783
+Environmental SRR4241868
+Environmental TEA_E2845
+Environmental TEA_E5545
+Environmental TEA_E4762
+Environmental TEA_E2065
+Environmental TEA_E2013
+Environmental TEA_E4830
+Environmental TEA_E2026
+Environmental TEA_1863_3_1_WA_Bloom
+Environmental SRR13576155
+Environmental TEA_E4735
+Environmental TEA_E5897
+Environmental TEA_E258
+Environmental TEA_E8619
+Environmental TEA_E7641
+Environmental TEA_E2042
+Environmental TEA_E9790
+Environmental TEA_2099_1_1
+Environmental SRR13735206
+Environmental AUSMDU00070154
+Environmental TEA_E8599
+Environmental TEA_E6082
+Environmental TEA_E2521
+Environmental TEA_E2844
+Environmental TEA_E6649
+Environmental TEA_E8496
+Environmental TEA_E9844
+Environmental TEA_E5261
+Environmental SRR13735209
+Livestock AusGEM_00276
+Livestock SRR14160904
+Livestock AusGEM_00225
+Livestock AusGEM_00007
+Livestock AusGEM_00133
+Livestock AusGEM_00873
+Livestock AusGEM_00313
+Livestock AusGEM_00986
+Livestock AusGEM_00988
+Livestock AusGEM_00866
+Livestock AusGEM_00975
+Livestock AusGEM_00299
+Livestock AusGEM_00876
+Livestock AusGEM_00980
+Livestock AusGEM_00948
+Livestock AusGEM_00107
+Livestock TEA_B1850
+Livestock AusGEM_00877
+Livestock SRR12398600
+Livestock TEA_B1814
+Livestock AusGEM_00281
+Livestock AusGEM_00048
+Livestock AusGEM_00172
+Livestock SRR14160831
+Livestock AusGEM_00002
+Livestock AusGEM_00067
+Livestock AusGEM_00119
+Livestock AusGEM_00859
+Livestock SRR10065349
+Livestock AusGEM_00038
+Livestock AusGEM_00864
+Livestock AusGEM_00301
+Livestock TEA_B1940
+Livestock SRR14160907
+Livestock SRR14160936
+Livestock AusGEM_00308
+Livestock SRR7469914
+Livestock AusGEM_00101
+Livestock AusGEM_00269
+Livestock AusGEM_00157
+Livestock AusGEM_00943
+Livestock TEA_B1899
+Livestock AusGEM_00856
+Livestock AusGEM_00267
+Livestock AusGEM_00336
+Livestock AusGEM_00909
+Livestock SRR14160806
+Livestock SRR14160814
+Livestock AusGEM_00998
+Livestock AusGEM_00054
+Livestock AusGEM_00022
+Livestock AusGEM_00117
+Livestock TEA_B1951
+Livestock AusGEM_00031
+Livestock AusGEM_00126
+Livestock AusGEM_00296
+Livestock SRR14160803
+Livestock AusGEM_00899
+Livestock SRR7790734
+Livestock AusGEM_00879
+Livestock AusGEM_00239
+Livestock AusGEM_00140
+Livestock AusGEM_00929
+Livestock AusGEM_00235
+Livestock AusGEM_00096
+Livestock SRR14160799
+Livestock AusGEM_00302
+Livestock SRR14160914
+Livestock TEA_B1927
+Livestock AusGEM_00953
+Livestock AusGEM_00293
+Livestock AusGEM_01008
+Livestock AusGEM_00255
+Livestock SRR14160859
+Livestock AusGEM_00095
+Livestock AusGEM_00290
+Livestock AusGEM_00176
+Livestock AusGEM_00939
+Livestock AusGEM_00180
+Livestock AusGEM_00049
+Livestock SRR14160928
+Livestock AusGEM_00224
+Livestock TEA_B1877
+Livestock SRR7469893
+Livestock AusGEM_01016
+Livestock AusGEM_00918
+Livestock TEA_B1929
+Livestock AusGEM_00052
+Livestock AusGEM_00236
+Livestock AusGEM_00102
+Livestock TEA_B1900
+Livestock AusGEM_01033
+Livestock SRR7469887
+Livestock SRR7469862
+Livestock AusGEM_01020
+Livestock AusGEM_00329
+Livestock AusGEM_00153
+Livestock AusGEM_00193
+Livestock TEA_B1853
+Livestock AusGEM_00315
+Livestock SRR7469830
+Livestock TEA_B1809
+Livestock AusGEM_00242
+Livestock AusGEM_00309
+Livestock AusGEM_00043
+Livestock AusGEM_00072
+Livestock AusGEM_00045
+Livestock AusGEM_01011
+Livestock AusGEM_00970
+Livestock AusGEM_00127
+Livestock AusGEM_00152
+Livestock AusGEM_00878
+Livestock SRR11886760
+Livestock AusGEM_00041
+Livestock AusGEM_01006
+Livestock AusGEM_00213
+Livestock AusGEM_00976
+Livestock AusGEM_00861
+Livestock AusGEM_00021
+Livestock AusGEM_00040
+Livestock AusGEM_00880
+Livestock AusGEM_00069
+Livestock AusGEM_00240
+Livestock TEA_B1937
+Livestock AusGEM_00323
+Livestock TEA_B1803
+Livestock AusGEM_01027
+Livestock AusGEM_00250
+Livestock SRR14160908
+Livestock AusGEM_00291
+Livestock AusGEM_00268
+Livestock AusGEM_00091
+Livestock AusGEM_00985
+Livestock TEA_B1859
+Livestock AusGEM_00937
+Livestock SRR14160939
+Livestock AusGEM_00333
+Livestock AusGEM_00968
+Livestock AusGEM_00961
+Livestock SRR7469839
+Livestock SRR7469868
+Livestock AusGEM_00870
+Livestock AusGEM_00883
+Livestock SRR14160934
+Livestock AusGEM_00166
+Livestock AusGEM_00014
+Livestock AusGEM_00214
+Livestock AusGEM_00184
+Livestock SRR11886750
+Livestock AusGEM_00186
+Livestock AusGEM_00025
+Livestock AusGEM_00168
+Livestock AusGEM_00150
+Livestock AusGEM_00902
+Livestock AusGEM_00280
+Livestock AusGEM_00201
+Livestock TEA_B1914
+Livestock SRR7469854
+Livestock AusGEM_00921
+Livestock AusGEM_00055
+Livestock TEA_B1939
+Livestock SRR14160820
+Livestock AusGEM_00888
+Livestock AusGEM_00982
+Livestock AusGEM_00189
+Livestock SRR7469845
+Livestock SRR7469840
+Livestock AusGEM_00317
+Livestock AusGEM_00175
+Livestock AusGEM_00219
+Livestock AusGEM_00078
+Livestock AusGEM_00233
+Livestock SRR7790753
+Livestock AusGEM_00139
+Livestock SRR14160910
+Livestock AusGEM_00020
+Livestock TEA_B1897
+Livestock AusGEM_00011
+Livestock AusGEM_00911
+Livestock SRR7469846
+Livestock AusGEM_00328
+Livestock AusGEM_00941
+Livestock SRR12398598
+Livestock SRR14160927
+Livestock AusGEM_00274
+Livestock AusGEM_00331
+Livestock AusGEM_00956
+Livestock AusGEM_00905
+Livestock SRR12398589
+Livestock AusGEM_00229
+Livestock TEA_B1867
+Livestock AusGEM_00855
+Livestock AusGEM_00135
+Livestock AusGEM_00270
+Livestock SRR14160819
+Livestock AusGEM_00908
+Livestock AusGEM_00154
+Livestock AusGEM_01023
+Livestock AusGEM_00169
+Livestock SRR14160930
+Livestock AusGEM_00046
+Livestock AusGEM_00122
+Livestock AusGEM_00890
+Livestock AusGEM_00316
+Livestock AusGEM_00088
+Livestock SRR14160925
+Livestock SRR14160816
+Livestock AusGEM_00960
+Livestock AusGEM_00984
+Livestock AusGEM_00244
+Livestock AusGEM_00094
+Livestock AusGEM_00137
+Livestock AusGEM_00197
+Livestock AusGEM_00966
+Livestock AusGEM_00026
+Livestock AusGEM_01024
+Livestock AusGEM_00234
+Livestock AusGEM_00923
+Livestock AusGEM_00893
+Livestock SRR1554983
+Livestock AusGEM_00018
+Livestock AusGEM_00215
+Livestock AusGEM_00916
+Livestock AusGEM_00185
+Livestock AusGEM_00981
+Livestock SRR14160800
+Livestock TEA_B1930
+Livestock AusGEM_00881
+Livestock SRR7469870
+Livestock AusGEM_00287
+Livestock SRR14160944
+Livestock TEA_B1885
+Livestock AusGEM_00972
+Livestock AusGEM_00174
+Livestock AusGEM_00955
+Livestock SRR14160903
+Livestock AusGEM_00282
+Livestock AusGEM_00991
+Livestock TEA_B1725
+Livestock AusGEM_00994
+Livestock TEA_B1928
+Livestock SRR14160821
+Livestock TEA_B1832
+Livestock AusGEM_00253
+Livestock AusGEM_00262
+Livestock AusGEM_00265
+Livestock AusGEM_00097
+Livestock AusGEM_00162
+Livestock SRR14160862
+Livestock AusGEM_00992
+Livestock AusGEM_00216
+Livestock AusGEM_01029
+Livestock AusGEM_00073
+Livestock AusGEM_00027
+Livestock AusGEM_00212
+Livestock AusGEM_00252
+Livestock AusGEM_00116
+Livestock AusGEM_00895
+Livestock AusGEM_00064
+Livestock SRR7469829
+Livestock AusGEM_00192
+Livestock SRR7612197
+Livestock AusGEM_00995
+Livestock TEA_B1675
+Livestock AusGEM_00327
+Livestock AusGEM_00074
+Livestock SRR14160876
+Livestock AusGEM_01031
+Livestock AusGEM_00032
+Livestock AusGEM_00065
+Livestock AusGEM_00238
+Livestock SRR14160809
+Livestock AusGEM_00307
+Livestock AusGEM_00305
+Livestock SRR12398590
+Livestock AusGEM_00194
+Livestock AusGEM_00090
+Livestock SRR12398585
+Livestock AusGEM_00030
+Livestock TEA_B1808
+Livestock AusGEM_00853
+Livestock AusGEM_00925
+Livestock AusGEM_00924
+Livestock SRR7790718
+Livestock SRR14160829
+Livestock AusGEM_00098
+Livestock TEA_B1820
+Livestock AusGEM_00036
+Livestock SRR14160872
+Livestock AusGEM_00113
+Livestock SRR7469866
+Livestock AusGEM_01017
+Livestock AusGEM_00957
+Livestock AusGEM_00068
+Livestock AusGEM_00005
+Livestock AusGEM_00170
+Livestock TEA_B1933
+Livestock AusGEM_01001
+Livestock SRR14160906
+Livestock SRR4241845
+Livestock AusGEM_00865
+Livestock SRR7790735
+"Wild Animal" SRR7724623
+"Wild Animal" AusGEM_01523
+"Wild Animal" TEA_B1956
+"Wild Animal" AusGEM_01745
+"Wild Animal" AusGEM_01857
+"Wild Animal" AusGEM_01772
+"Wild Animal" SRR11341601
+"Wild Animal" AusGEM_01493
+"Wild Animal" AusGEM_01590
+"Wild Animal" AusGEM_01580
+"Wild Animal" SRR4241861
+"Wild Animal" AusGEM_01853
+"Wild Animal" AusGEM_01611
+"Wild Animal" TEA_B1568
+"Wild Animal" AusGEM_01720
+"Wild Animal" AusGEM_01490
+"Wild Animal" AusGEM_01819
+"Wild Animal" AusGEM_01726
+"Wild Animal" TEA_B1341
+"Wild Animal" AusGEM_01850
+"Wild Animal" SRR11341635
+"Wild Animal" AusGEM_01824
+"Wild Animal" SRR7724794
+"Wild Animal" TEA_B1719
+"Wild Animal" TEA_B620
+"Wild Animal" TEA_B749
+"Wild Animal" AusGEM_01765
+"Wild Animal" AusGEM_01095
+"Wild Animal" TEA_M608
+"Wild Animal" AusGEM_01776
+"Wild Animal" SRR11341610
+"Wild Animal" AusGEM_01657
+"Wild Animal" TEA_B1654
+"Wild Animal" TEA_TA401
+"Wild Animal" AusGEM_01485
+"Wild Animal" AusGEM_01075
+"Wild Animal" AusGEM_01757
+"Wild Animal" AusGEM_01512
+"Wild Animal" AusGEM_01088
+"Wild Animal" SRR7724779
+"Wild Animal" SRR7724749
+"Wild Animal" SRR7724807
+"Wild Animal" AusGEM_01744
+"Wild Animal" AusGEM_01601
+"Wild Animal" SRR11341620
+"Wild Animal" SRR7724706
+"Wild Animal" AusGEM_01811
+"Wild Animal" AusGEM_01662
+"Wild Animal" TEA_B1663
+"Wild Animal" TEA_B1544
+"Wild Animal" TEA_B544
+"Wild Animal" AusGEM_01584
+"Wild Animal" AusGEM_01707
+"Wild Animal" AusGEM_01604
+"Wild Animal" SRR11355596
+"Wild Animal" AusGEM_01575
+"Wild Animal" TEA_B1542
+"Wild Animal" TEA_POSS_70
+"Wild Animal" AusGEM_01710
+"Wild Animal" SRR7724809
+"Wild Animal" SRR11355610
+"Wild Animal" AusGEM_01727
+"Wild Animal" AusGEM_01748
+"Wild Animal" AusGEM_01781
+"Wild Animal" AusGEM_01561
+"Wild Animal" AusGEM_01487
+"Wild Animal" AusGEM_01589
+"Wild Animal" AusGEM_01034
+"Wild Animal" SRR7724840
+"Wild Animal" AusGEM_01638
+"Wild Animal" SRR4241853
+"Wild Animal" AusGEM_01679
+"Wild Animal" AusGEM_01816
+"Wild Animal" SRR11341609
+"Wild Animal" SRR7724839
+"Wild Animal" AusGEM_01821
+"Wild Animal" AusGEM_01505
+"Wild Animal" AusGEM_01486
+"Wild Animal" TEA_B1504
+"Wild Animal" AusGEM_01716
+"Wild Animal" AusGEM_01723
+"Wild Animal" AusGEM_01803
+"Wild Animal" SRR11612999
+"Wild Animal" AusGEM_01645
+"Wild Animal" TEA_TA450
+"Wild Animal" AusGEM_01551
+"Wild Animal" AusGEM_01089
+"Wild Animal" AusGEM_01692
+"Wild Animal" AusGEM_01773
+"Wild Animal" AusGEM_01690
+"Wild Animal" TEA_TA257
+"Wild Animal" SRR11355593
+"Wild Animal" SRR11341652
+"Wild Animal" SRR11341660
+"Wild Animal" TEA_MISC_766
+"Wild Animal" AusGEM_01572
+"Wild Animal" SRR11341596
+"Wild Animal" AusGEM_01746
+"Wild Animal" SRR7724731
+"Wild Animal" AusGEM_01630
+"Wild Animal" AusGEM_01478
+"Wild Animal" SRR7724703
+"Wild Animal" AusGEM_01082
+"Wild Animal" AusGEM_01642
+"Wild Animal" TEA_POSS_07
+"Wild Animal" TEA_B525
+"Wild Animal" AusGEM_01831
+"Wild Animal" AusGEM_01650
+"Wild Animal" SRR11355592
+"Wild Animal" AusGEM_01634
+"Wild Animal" TEA_B1728
+"Wild Animal" TEA_B264
+"Wild Animal" SRR11341647
+"Wild Animal" AusGEM_01559
+"Wild Animal" TEA_POSS_76
+"Wild Animal" TEA_B127
+"Wild Animal" TEA_M558
+"Wild Animal" AusGEM_01682
+"Wild Animal" AusGEM_01789
+"Wild Animal" AusGEM_01624
+"Wild Animal" AusGEM_01077
+"Wild Animal" AusGEM_01583
+"Wild Animal" TEA_B1837
+"Wild Animal" AusGEM_01533
+"Wild Animal" AusGEM_01491
+"Wild Animal" TEA_B531
+"Wild Animal" AusGEM_01849
+"Wild Animal" AusGEM_01832
+"Wild Animal" SRR7724727
+"Wild Animal" TEA_TA144
+"Wild Animal" AusGEM_01045
+"Wild Animal" TEA_TA149
+"Wild Animal" AusGEM_01553
+"Wild Animal" SRR7724597
+"Wild Animal" AusGEM_01570
+"Wild Animal" AusGEM_01861
+"Wild Animal" SRR11341604
+"Wild Animal" SRR7724805
+"Wild Animal" AusGEM_01464
+"Wild Animal" SRR11341640
+"Wild Animal" AusGEM_01854
+"Wild Animal" AusGEM_01066
+"Wild Animal" AusGEM_01548
+"Wild Animal" AusGEM_01635
+"Wild Animal" TEA_B778
+"Wild Animal" AusGEM_01859
+"Wild Animal" SRR11341628
+"Wild Animal" TEA_B1548
+"Wild Animal" AusGEM_01510
+"Wild Animal" AusGEM_01747
+"Wild Animal" TEA_B868
+"Wild Animal" TEA_TA029
+"Wild Animal" AusGEM_01631
+"Wild Animal" TEA_B1730
+"Wild Animal" AusGEM_01565
+"Wild Animal" AusGEM_01462
+"Wild Animal" AusGEM_01581
+"Wild Animal" TEA_B721
+"Wild Animal" AusGEM_01508
+"Wild Animal" AusGEM_01795
+"Wild Animal" AusGEM_01489
+"Wild Animal" SRR11613022
+"Wild Animal" TEA_B1795
+"Wild Animal" TEA_B1503
+"Wild Animal" AusGEM_01050
+"Wild Animal" TEA_M761
+"Wild Animal" AusGEM_01779
+"Wild Animal" AusGEM_01688
+"Wild Animal" TEA_B1684
+"Wild Animal" TEA_TA336
+"Wild Animal" SRR11355594
+"Wild Animal" AusGEM_01471
+"Wild Animal" SRR7724768
+"Wild Animal" TEA_B1549b
+"Wild Animal" AusGEM_01571
+"Wild Animal" TEA_TA338
+"Wild Animal" TEA_M927
+"Wild Animal" AusGEM_01785
+"Wild Animal" SRR7724604
+"Wild Animal" AusGEM_01699
+"Wild Animal" AusGEM_01754
+"Wild Animal" SRR11355595
+"Wild Animal" SRR11341622
+"Wild Animal" AusGEM_01678
+"Wild Animal" AusGEM_01607
+"Wild Animal" SRR7724568
+"Wild Animal" AusGEM_01721
+"Wild Animal" AusGEM_01749
+"Wild Animal" AusGEM_01774
+"Wild Animal" AusGEM_01544
+"Wild Animal" AusGEM_01525
+"Wild Animal" AusGEM_01100
+"Wild Animal" TEA_TA139
+"Wild Animal" SRR7724732
+"Wild Animal" AusGEM_01700
+"Wild Animal" TEA_B386
+"Wild Animal" AusGEM_01061
+"Wild Animal" AusGEM_01844
+"Wild Animal" AusGEM_01653
+"Wild Animal" AusGEM_01656
+"Wild Animal" AusGEM_01761
+"Wild Animal" TEA_TA112
+"Wild Animal" AusGEM_01841
+"Wild Animal" SRR7724788
+"Wild Animal" SRR11355609
+"Wild Animal" SRR7724844
+"Wild Animal" TEA_B1697b
+"Wild Animal" AusGEM_01814
+"Wild Animal" SRR7724666
+"Wild Animal" TEA_TA265
+"Wild Animal" AusGEM_01822
+"Wild Animal" TEA_TA350
+"Wild Animal" TEA_TA258
+"Wild Animal" AusGEM_01802
+"Wild Animal" SRR7724605
+"Wild Animal" SRR7724590
+"Wild Animal" TEA_B1714
+"Wild Animal" TEA_B1784
+"Wild Animal" AusGEM_01840
+"Wild Animal" SRR7724709
+"Wild Animal" SRR7724745
+"Wild Animal" AusGEM_01669
+"Wild Animal" SRR11355607
+"Wild Animal" AusGEM_01695
+"Wild Animal" TEA_TA341
+"Wild Animal" TEA_TA010
+"Wild Animal" SRR11341636
+"Wild Animal" AusGEM_01725
+"Wild Animal" SRR11341649
+"Wild Animal" SRR7724649
+"Wild Animal" SRR7724606
+"Wild Animal" TEA_TA085
+"Wild Animal" TEA_B564
+"Wild Animal" TEA_B1794
+"Wild Animal" AusGEM_01578
+"Wild Animal" AusGEM_01540
+"Wild Animal" SRR7724632
+"Wild Animal" SRR11341661
+"Wild Animal" TEA_TA013
+"Wild Animal" AusGEM_01856
+"Wild Animal" TEA_B1688
+"Wild Animal" AusGEM_01587
+"Wild Animal" AusGEM_01770
+"Wild Animal" TEA_M528
+"Wild Animal" AusGEM_01869
+"Wild Animal" SRR11355613
+"Wild Animal" AusGEM_01786
+"Wild Animal" AusGEM_01704
+"Wild Animal" TEA_TA011
+"Wild Animal" AusGEM_01594
+"Wild Animal" AusGEM_01740
+"Wild Animal" AusGEM_01758
+"Wild Animal" TEA_TA455
+"Wild Animal" SRR7724616
+"Wild Animal" SRR7724717
+"Wild Animal" AusGEM_01603
+"Wild Animal" AusGEM_01481
+"Wild Animal" AusGEM_01058
+"Wild Animal" AusGEM_01556
+"Wild Animal" TEA_M1198
+"Wild Animal" SRR7724598
+"Wild Animal" TEA_TA478
+"Wild Animal" AusGEM_01823
+"Wild Animal" SRR11612995
+"Wild Animal" TEA_B1664
+"Wild Animal" AusGEM_01048
+"Wild Animal" AusGEM_01706
+"Wild Animal" SRR7724696
+"Wild Animal" AusGEM_01532
+"Wild Animal" TEA_M1213b
+"Wild Animal" TEA_M938
+"Wild Animal" TEA_B1694
+"Wild Animal" SRR4241859
+"Wild Animal" SRR7724646
+"Wild Animal" TEA_B547
+"Wild Animal" AusGEM_01558
+"Wild Animal" AusGEM_01775
+"Wild Animal" AusGEM_01868
+"Wild Animal" AusGEM_01750
+"Wild Animal" SRR7724718
+"Wild Animal" TEA_B250
+"Wild Animal" TEA_M655
+"Wild Animal" SRR7724766
+"Wild Animal" AusGEM_01768
+"Wild Animal" SRR11355587
+"Wild Animal" AusGEM_01475
+"Wild Animal" SRR7724609
+"Wild Animal" AusGEM_01696
+"Wild Animal" TEA_B977
+"Wild Animal" AusGEM_01694
+"Wild Animal" AusGEM_01827
+"Wild Animal" AusGEM_01674
+"Wild Animal" AusGEM_01577
+"Wild Animal" AusGEM_01871
+"Wild Animal" SRR7724694
+"Wild Animal" TEA_POSS_71
+"Wild Animal" TEA_B1761
+"Wild Animal" SRR7724763
+"Wild Animal" AusGEM_01488
+"Wild Animal" AusGEM_01837
+"Wild Animal" SRR7724771
+"Wild Animal" AusGEM_01729
+Human AUSMDU00015623
+Human SRR9924672
+Human AusGEM_01363
+Human TEA_7_14_27
+Human AUSMDU00010643
+Human AusGEM_01943
+Human AusGEM_01906
+Human AUSMDU00019176
+Human SRR7790750
+Human TEA_33_3_R3
+Human AUSMDU00010661
+Human ERR5355889
+Human SRR13236433
+Human AUSMDU00065546
+Human TEA_H030
+Human AUSMDU00015563
+Human AusGEM_01289
+Human AUSMDU00007859
+Human AUSMDU00010660
+Human AUSMDU00060073
+Human AUSMDU00021677
+Human AUSMDU00060113
+Human AUSMDU00037412
+Human SRR9924683
+Human AusGEM_02045
+Human AUSMDU00029443
+Human AUSMDU00015708
+Human AUSMDU00015553
+Human AUSMDU00016148
+Human AUSMDU00038961
+Human AUSMDU00008001
+Human AUSMDU00040137
+Human ERR5355855
+Human AUSMDU00041685
+Human AUSMDU00008441
+Human AUSMDU00042569
+Human AUSMDU00010648
+Human AUSMDU00021251
+Human AusGEM_00836
+Human ERR5355671
+Human SRR7758963
+Human AUSMDU00019235
+Human AUSMDU00026545
+Human AUSMDU00024356
+Human AUSMDU00008435
+Human AUSMDU00048779
+Human AUSMDU00008666
+Human AUSMDU00015849
+Human SRR6455979
+Human AusGEM_01299
+Human SRR7758857
+Human ERR5355634
+Human AUSMDU00036729
+Human AUSMDU00015622
+Human AUSMDU00034368
+Human ERR5355705
+Human TEA_H336
+Human ERR5355920
+Human AusGEM_01348
+Human AUSMDU00031978-B
+Human AUSMDU00022561
+Human TEA_24_1_Si1
+Human AUSMDU00007449
+Human ERR5355897
+Human AUSMDU00010645
+Human AUSMDU00039407
+Human AusGEM_01262
+Human AUSMDU00016175
+Human AusGEM_01899
+Human AUSMDU00008523
+Human TEA_29_4_DC8
+Human AUSMDU00040301
+Human AUSMDU00065125
+Human AUSMDU00041549
+Human AusGEM_02040
+Human SRR4241871
+Human AUSMDU00024424
+Human SRR7828713
+Human AUSMDU00011689
+Human AusGEM_01133
+Human AUSMDU00024980
+Human SRR5512156
+Human AUSMDU00027031
+Human AusGEM_02024
+Human AUSMDU00035619
+Human AUSMDU00032793
+Human TEA_36_1_Ti13
+Human AUSMDU00015996
+Human SRR7912397
+Human AusGEM_01984
+Human AUSMDU00015577
+Human AUSMDU00015601
+Human AUSMDU00018818
+Human TEA_H020
+Human SRR5512150
+Human AUSMDU00018538
+Human ERR5355964
+Human AusGEM_01162
+Human AUSMDU00065821
+Human ERR5355710
+Human ERR161253
+Human SRR9924658
+Human AUSMDU00016169
+Human SRR7828719
+Human AUSMDU00015808
+Human ERR5355728
+Human SRR5512167
+Human AUSMDU00017685
+Human AUSMDU00016513
+Human AusGEM_01904
+Human AusGEM_00839
+Human AUSMDU00038476
+Human SRR7828700
+Human AUSMDU00019364
+Human ERR5355827
+Human AusGEM_00782
+Human ERR5355682
+Human AUSMDU00004616
+Human AUSMDU00007336
+Human AUSMDU00035685
+Human AUSMDU00010682
+Human AUSMDU00036067
+Human ERR5355600
+Human AusGEM_01382
+Human AUSMDU00008204
+Human AusGEM_00788
+Human TEA_62_2_Ti6b
+Human AUSMDU00023207
+Human AUSMDU00019501
+Human SRR7828667
+Human AUSMDU00008408
+Human AusGEM_00825
+Human AUSMDU00021615
+Human AUSMDU00010788
+Human AUSMDU00010930
+Human TEA_DMG_1993
+Human AUSMDU00023220
+Human AUSMDU00011173
+Human AusGEM_01284
+Human AusGEM_01230
+Human AUSMDU00015543
+Human AusGEM_01415
+Human SRR7790744
+Human AUSMDU00034480
+Human AUSMDU00012375
+Human ERR5355979
+Human AusGEM_01352
+Human AusGEM_01445
+Human AusGEM_01972
+Human AUSMDU00034366
+Human AusGEM_01131
+Human AUSMDU00040302
+Human AUSMDU00022392
+Human AUSMDU00015833
+Human AusGEM_01315
+Human AusGEM_01388
+Human AUSMDU00010639
+Human AUSMDU00034395
+Human AUSMDU00016537
+Human AusGEM_01288
+Human AUSMDU00017270
+Human AUSMDU00015598
+Human AUSMDU00015705
+Human AUSMDU00011714
+Human AUSMDU00047247
+Human AUSMDU00026903
+Human AUSMDU00015611
+Human AUSMDU00046205
+Human AusGEM_01449
+Human AUSMDU00011213
+Human AUSMDU00017427
+Human AUSMDU00008440
+Human AUSMDU00015846
+Human AUSMDU00019928
+Human AUSMDU00008537
+Human AusGEM_00747
+Human AusGEM_01154
+Human TEA_BS45
+Human SRR5512200
+Human AUSMDU00011690
+Human AUSMDU00010774
+Human AUSMDU00023212
+Human AUSMDU00049068
+Human AUSMDU00037491
+Human AusGEM_01385
+Human AUSMDU00022105
+Human AUSMDU00011818
+Human AUSMDU00020089
+Human AUSMDU00020385
+Human TEA_53_1_AUC1
+Human AUSMDU00018198
+Human AUSMDU00019767
+Human TEA_26_AU_GLYBX
+Human AusGEM_01432
+Human TEA_BS17
+Human AUSMDU00065497
+Human AusGEM_01185
+Human SRR4241801
+Human AUSMDU00034373
+Human TEA_2H_255_4
+Human SRR4241860
+Human AUSMDU00034199
+Human SRR9924684
+Human AUSMDU00026868
+Human SRR9924666
+Human AUSMDU00020386
+Human ERR5355947
+Human AUSMDU00015628
+Human AUSMDU00007863
+Human AusGEM_00755
+Human SRR7790716
+Human AusGEM_01356
+Human SRR4241793
+Human TEA_16_3_C13
+Human SRR11094181
+Human TEA_20_5_R7
+Human SRR7912407
+Human AUSMDU00008546
+Human AusGEM_01314
+Human AUSMDU00017095
+Human SRR5512149
+Human AUSMDU00011864
+Human SRR7912416
+Human SRR12875411
+Human SRR4241826
+Human TEA_M658539
+Human ERR5355692
+Human AUSMDU00070165
+Human SRR4067492
+Human TEA_H552
+Human TEA_M587877
+Human AUSMDU00019970
+Human AUSMDU00023713
+Human AUSMDU00032387
+Human ERR5355958
+Human AUSMDU00039410
+Human AUSMDU00040616
+Human ERR5355602
+Human SRR11094206
+Human AUSMDU00008207
+Human SRR11094210
+Human AUSMDU00010673
+Human AUSMDU00037923
+Human AUSMDU00041492
+Human AUSMDU00041340
+Human AusGEM_01274
+Human AusGEM_02014
+Human AusGEM_00821
+Human AusGEM_01410
+Human SRR5512176
+Human TEA_H482
+Human AUSMDU00034108
+Human TEA_H244
+Human AusGEM_00783
+Human AUSMDU00004890
+Human AusGEM_00819
+Human AusGEM_01411
+Human AUSMDU00010825
+Human SRR7790756
+Human TEA_M668546
+Human AusGEM_01308
+Human SRR7828846
+Human AUSMDU00016284
+Human ERR5355828
+Human AusGEM_01158
+Human AUSMDU00028585
+Human AUSMDU00031055
+Human AUSMDU00029683
+Human AusGEM_01980
+Human AUSMDU00048973
+Human SRR9924618
+Human SRR6455973
+Human AUSMDU00048786
+Human TEA_2H_327_20
+Human SRR5512201
+Human AUSMDU00046697
+Human SRR12844969
+Human AUSMDU00035601
+Human TEA_CD_27_IM1
+Human AUSMDU00035626
+Human AUSMDU00014016
+Human AusGEM_01931
+Human TEA_M664361
+Human AusGEM_01161
+Human TEA_17_2_DC14
+Human AUSMDU00018798
+Human AUSMDU00010644
+Human TEA_19_1_TC4
+Human AusGEM_01204
+Human AusGEM_01306
+Human AUSMDU00034383
+Human AusGEM_01429
+Human SRR5936496
+Human AUSMDU00036274
+Human AUSMDU00008631
+Human AUSMDU00040126
+Human AUSMDU00022565
+Human AusGEM_01171
+Human TEA_23_4_R13
+Human TEA_H668
+Human SRR13236432
+Human AusGEM_01120
+"Companion Animal" AusGEM_00482
+"Companion Animal" AusGEM_00691
+"Companion Animal" AusGEM_00450
+"Companion Animal" AusGEM_00514
+"Companion Animal" AusGEM_00660
+"Companion Animal" AusGEM_00470
+"Companion Animal" AusGEM_00527
+"Companion Animal" AusGEM_00650
+"Companion Animal" AusGEM_00532
+"Companion Animal" AusGEM_00597
+"Companion Animal" ERR4254600
+"Companion Animal" AusGEM_00545
+"Companion Animal" AusGEM_00398
+"Companion Animal" AusGEM_00343
+"Companion Animal" AusGEM_00431
+"Companion Animal" AusGEM_00434
+"Companion Animal" AusGEM_00435
+"Companion Animal" AusGEM_00449
+"Companion Animal" AusGEM_00518
+"Companion Animal" AusGEM_00685
+"Companion Animal" AusGEM_00342
+"Companion Animal" AusGEM_00689
+"Companion Animal" AusGEM_00522
+"Companion Animal" AusGEM_00464
+"Companion Animal" AusGEM_00579
+"Companion Animal" AusGEM_00455
+"Companion Animal" AusGEM_00624
+"Companion Animal" AusGEM_00399
+"Companion Animal" AusGEM_00701
+"Companion Animal" AusGEM_00676
+"Companion Animal" AusGEM_00389
+"Companion Animal" AusGEM_00544
+"Companion Animal" AusGEM_00504
+"Companion Animal" AusGEM_00731
+"Companion Animal" AusGEM_00617
+"Companion Animal" AusGEM_00471
+"Companion Animal" AusGEM_00460
+"Companion Animal" AusGEM_00409
+"Companion Animal" AusGEM_00648
+"Companion Animal" AusGEM_00513
+"Companion Animal" AusGEM_00478
+"Companion Animal" AusGEM_00602
+"Companion Animal" AusGEM_00598
+"Companion Animal" AusGEM_00718
+"Companion Animal" AusGEM_00646
+"Companion Animal" AusGEM_00490
+"Companion Animal" AusGEM_00367
+"Companion Animal" SRR11608155
+"Companion Animal" AusGEM_00512
+"Companion Animal" AusGEM_00352
+"Companion Animal" AusGEM_00348
+"Companion Animal" AusGEM_00353
+"Companion Animal" AusGEM_00530
+"Companion Animal" AusGEM_00582
+"Companion Animal" AusGEM_00357
+"Companion Animal" AusGEM_00385
+"Companion Animal" AusGEM_00674
+"Companion Animal" AusGEM_00697
+"Companion Animal" AusGEM_00659
+"Companion Animal" AusGEM_00368
+"Companion Animal" AusGEM_00445
+"Companion Animal" AusGEM_00395
+"Companion Animal" AusGEM_00427
+"Companion Animal" AusGEM_00592
+"Companion Animal" AusGEM_00716
+"Companion Animal" AusGEM_00502
+"Companion Animal" SRR11947109
+"Companion Animal" SRR11608164
+"Companion Animal" AusGEM_00382
+"Companion Animal" AusGEM_00557
+"Companion Animal" AusGEM_00623
+"Companion Animal" SRR11947108
+"Companion Animal" AusGEM_00396
+"Companion Animal" AusGEM_00594
+"Companion Animal" AusGEM_00717
+"Companion Animal" AusGEM_00384
+"Companion Animal" AusGEM_00537
+"Companion Animal" AusGEM_00349
+"Companion Animal" AusGEM_00644
+"Companion Animal" AusGEM_00463
+"Companion Animal" AusGEM_00573
+"Companion Animal" AusGEM_00361
+"Companion Animal" AusGEM_00339
+"Companion Animal" AusGEM_00432
+"Companion Animal" AusGEM_00724
+"Companion Animal" AusGEM_00500
+"Companion Animal" AusGEM_00630
+"Companion Animal" AusGEM_00345
+"Companion Animal" AusGEM_00476
+"Companion Animal" AusGEM_00454
+"Companion Animal" SRR11608157
+"Companion Animal" AusGEM_00479
+"Companion Animal" AusGEM_00443
+"Companion Animal" AusGEM_00422
+"Companion Animal" AusGEM_00577
+"Companion Animal" SRR11608158
+"Companion Animal" AusGEM_00466
+"Companion Animal" AusGEM_00499
+"Companion Animal" AusGEM_00442
+"Companion Animal" AusGEM_00415
+"Companion Animal" AusGEM_00486
+"Companion Animal" AusGEM_00639
+"Companion Animal" AusGEM_00391
+"Companion Animal" AusGEM_00386
+"Companion Animal" AusGEM_00588
+"Companion Animal" AusGEM_00736
+"Companion Animal" AusGEM_00535
+"Companion Animal" AusGEM_00628
+"Companion Animal" AusGEM_00600
+"Companion Animal" AusGEM_00498
+"Companion Animal" AusGEM_00661
+"Companion Animal" AusGEM_00727
+"Companion Animal" AusGEM_00501
+"Companion Animal" AusGEM_00569
+"Companion Animal" AusGEM_00607
+"Companion Animal" AusGEM_00637
+"Companion Animal" AusGEM_00698
+"Companion Animal" AusGEM_00652
+"Companion Animal" AusGEM_00586
+"Companion Animal" AusGEM_00556
+"Companion Animal" AusGEM_00681
+"Companion Animal" AusGEM_00410
+"Companion Animal" AusGEM_00423
+"Companion Animal" AusGEM_00667
+"Companion Animal" AusGEM_00549
+"Companion Animal" AusGEM_00424
+"Companion Animal" AusGEM_00444
+"Companion Animal" AusGEM_00591
+"Companion Animal" AusGEM_00703
+"Companion Animal" AusGEM_00468
+"Companion Animal" AusGEM_00369
+"Companion Animal" AusGEM_00475
+"Companion Animal" AusGEM_00585
+"Companion Animal" AusGEM_00567
+"Companion Animal" AusGEM_00521
+"Companion Animal" AusGEM_00375
+"Companion Animal" AusGEM_00539
+"Companion Animal" AusGEM_00702
+"Companion Animal" AusGEM_00393
+"Companion Animal" AusGEM_00359
+"Companion Animal" AusGEM_00346
+"Companion Animal" AusGEM_00538
+"Companion Animal" AusGEM_00609
+"Companion Animal" AusGEM_00686
+"Companion Animal" AusGEM_00615
+"Companion Animal" AusGEM_00516
+"Companion Animal" SRR4241862
+"Companion Animal" AusGEM_00696
+"Companion Animal" AusGEM_00723
+"Companion Animal" SRR11608166
+"Companion Animal" AusGEM_00480
+"Companion Animal" AusGEM_00612
+"Companion Animal" AusGEM_00540
+"Companion Animal" AusGEM_00441
+"Companion Animal" AusGEM_00568
+"Companion Animal" AusGEM_00447
+"Companion Animal" AusGEM_00533
+"Companion Animal" AusGEM_00669
+"Companion Animal" AusGEM_00550
+"Companion Animal" AusGEM_00663
+"Companion Animal" AusGEM_00436
+"Companion Animal" AusGEM_00417
+"Companion Animal" AusGEM_00635
+"Companion Animal" AusGEM_00484
+"Companion Animal" AusGEM_00647
+"Companion Animal" AusGEM_00461
+"Companion Animal" AusGEM_00694
+"Companion Animal" AusGEM_00554
+"Companion Animal" AusGEM_00605
+"Companion Animal" AusGEM_00610
+"Companion Animal" SRR11608169
+"Companion Animal" AusGEM_00481
+"Companion Animal" AusGEM_00406
+"Companion Animal" SRR933543
+"Companion Animal" AusGEM_00429
+"Companion Animal" AusGEM_00508
+"Companion Animal" AusGEM_00666
+"Companion Animal" AusGEM_00344
+"Companion Animal" AusGEM_00735
+"Companion Animal" AusGEM_00704
+"Companion Animal" AusGEM_00670
+"Companion Animal" AusGEM_00403
+"Companion Animal" AusGEM_00638
+"Companion Animal" AusGEM_00619
+"Companion Animal" SRR11947112
+"Companion Animal" AusGEM_00555
+"Companion Animal" AusGEM_00712
+"Companion Animal" AusGEM_00487
+"Companion Animal" AusGEM_00636
+"Companion Animal" AusGEM_00411
+"Companion Animal" AusGEM_00363
+"Companion Animal" AusGEM_00401
+"Companion Animal" AusGEM_00453
+"Companion Animal" AusGEM_00552
+"Companion Animal" AusGEM_00601
+"Companion Animal" AusGEM_00687
+"Companion Animal" SRR11608159
+"Companion Animal" AusGEM_00679
+"Companion Animal" AusGEM_00626
+"Companion Animal" AusGEM_00405
+"Companion Animal" AusGEM_00546
+"Companion Animal" AusGEM_00699
+"Companion Animal" AusGEM_00492
+"Companion Animal" AusGEM_00365
+"Companion Animal" AusGEM_00653
+"Companion Animal" AusGEM_00366
+"Companion Animal" AusGEM_00407
+"Companion Animal" AusGEM_00477
+"Companion Animal" AusGEM_00469
+"Companion Animal" AusGEM_00654
+"Companion Animal" AusGEM_00419
+"Companion Animal" AusGEM_00474
+"Companion Animal" AusGEM_00505
+"Companion Animal" AusGEM_00485
+"Companion Animal" AusGEM_00571
+"Companion Animal" AusGEM_00593
+"Companion Animal" AusGEM_00414
+"Companion Animal" AusGEM_00671
+"Companion Animal" AusGEM_00439
+"Companion Animal" AusGEM_00430
+"Companion Animal" AusGEM_00668
+"Companion Animal" AusGEM_00374
+"Companion Animal" AusGEM_00350
+"Companion Animal" AusGEM_00392
+"Companion Animal" AusGEM_00726
+"Companion Animal" AusGEM_00524
+"Companion Animal" AusGEM_00347
+"Companion Animal" AusGEM_00570
+"Companion Animal" AusGEM_00376
+"Companion Animal" AusGEM_00596
+"Companion Animal" AusGEM_00457
+"Companion Animal" AusGEM_00631
+"Companion Animal" AusGEM_00390
+"Companion Animal" AusGEM_00542
+"Companion Animal" AusGEM_00536
+"Companion Animal" AusGEM_00497
+"Companion Animal" AusGEM_00632
+"Companion Animal" AusGEM_00553
+"Companion Animal" AusGEM_00678
+"Companion Animal" AusGEM_00616
+"Companion Animal" AusGEM_00446
+"Companion Animal" AusGEM_00459
+"Companion Animal" AusGEM_00503
+"Companion Animal" AusGEM_00534
+"Companion Animal" AusGEM_00418
+"Companion Animal" AusGEM_00633
+"Companion Animal" AusGEM_00649
+"Companion Animal" AusGEM_00720
+"Companion Animal" AusGEM_00590
+"Companion Animal" AusGEM_00656
+"Companion Animal" AusGEM_00680
+"Companion Animal" AusGEM_00340
+"Companion Animal" AusGEM_00381
+"Companion Animal" AusGEM_00473
+"Companion Animal" AusGEM_00529
+"Companion Animal" AusGEM_00642
+"Companion Animal" AusGEM_00672
+"Companion Animal" AusGEM_00515
+"Companion Animal" AusGEM_00606
+"Companion Animal" AusGEM_00387
+"Companion Animal" AusGEM_00641
+"Companion Animal" AusGEM_00595
+"Companion Animal" AusGEM_00341
+"Companion Animal" SRR4241825
+"Companion Animal" AusGEM_00456
+"Companion Animal" AusGEM_00576
+"Companion Animal" AusGEM_00706
+"Companion Animal" AusGEM_00664
+"Companion Animal" AusGEM_00651
+"Companion Animal" AusGEM_00715
+"Companion Animal" AusGEM_00531
+"Companion Animal" AusGEM_00603
+"Companion Animal" AusGEM_00620
+"Companion Animal" AusGEM_00541
+"Companion Animal" AusGEM_00408
+"Companion Animal" AusGEM_00551
+"Companion Animal" AusGEM_00394
+"Companion Animal" SRR11947107
+"Companion Animal" AusGEM_00370
+"Companion Animal" AusGEM_00608
+"Companion Animal" AusGEM_00426
+"Companion Animal" AusGEM_00581
+"Companion Animal" AusGEM_00563
+"Companion Animal" AusGEM_00458
+"Companion Animal" AusGEM_00356
+"Companion Animal" AusGEM_00416
+"Companion Animal" AusGEM_00380
+"Companion Animal" AusGEM_00489
+"Companion Animal" AusGEM_00584
+"Companion Animal" AusGEM_00547
+"Companion Animal" AusGEM_00658
+"Companion Animal" AusGEM_00645
+"Companion Animal" SRR11608168
+"Companion Animal" SRR4241831
+"Companion Animal" AusGEM_00452
+"Companion Animal" AusGEM_00543
+"Companion Animal" AusGEM_00575
+"Companion Animal" AusGEM_00360
+"Companion Animal" AusGEM_00629
+"Companion Animal" SRR11608156
+"Companion Animal" SRR11947110
+"Companion Animal" AusGEM_00705
