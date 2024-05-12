@@ -1,0 +1,2403 @@
+---
+title: "AusTrakka_Accessory_Analysis"
+author: "Max Cummins"
+date: "`r Sys.Date()`"
+output:
+    html_document:
+        theme: spacelab
+        toc: true
+        toc_float: true
+---
+
+```{r setup, include=FALSE}
+#Read in our packages
+library(tidyverse)
+library(vroom)
+library(ggplot2)
+library(xml2)
+library(ggrepel)
+library(caret)
+library(here)
+
+knitr::opts_chunk$set(echo = TRUE, root.dir = here::here())
+
+#Define our not in function
+`%nin%` <- Negate(`%in%`)
+```
+
+## Read in our tree and genomic and metadata dataset
+
+```{r Merge_analysis_outputs, include=FALSE}
+
+genometa <- vroom("delims/genometa_n5631.txt", show_col_types = FALSE)
+
+#Read in our tree
+tree <- ggtree::read.tree("analysis/pad.nwk")
+
+#Remove quotes from sample names
+tree$tip.label <- gsub("'", "", tree$tip.label)
+
+#Create a list of samples in our cohort
+sample_names <- tree$tip.label %>% as.data.frame() %>% rename('name' = '.')
+
+```
+
+
+```{r}
+
+library(ggtree)
+library(paletteer)
+
+#Create fake colour for header
+Source_header <- c(NA)
+names(Source_header) <- 'Sources'
+
+#Define our colours for our sources
+source_cols2 <- 
+paletteer_d("ggsci::category10_d3")[1:length(unique(genometa$Revised_Source_Niche))]
+
+#Assign our names
+names(source_cols2) <- unique(genometa$Revised_Source_Niche)
+
+#Overwrite with different colours
+source_cols <- c("Companion Animal" = "#59398d",
+         "Environmental" = "#709b46",
+         "Food" = "#c09f3d",
+         "Human" = "#48c595",
+         "Livestock" =  "#c26bbc",
+         "Wild Animal" = "#b9553d")
+
+#Create fake colour for header
+phylogroup_header <- c(NA)
+names(phylogroup_header) <- 'Phylogroups'
+
+#Define our colours for our phylogroups
+clermont_cols <- c('#ffe119', '#4363d8', '#f58231', '#dcbeff', '#800000', '#000075', '#9A6324', 'red', '#3cb44b',  'white', '#a9a9a9', 'black')
+
+#Assign our color names for phylogroups
+names(clermont_cols) <- c("A", "B1",  "B2", "C", "D", "E", "F", "G", "E or cladeI", "cladeI", "cladeIII", "cladeIV")
+
+#Combine our lists of colours
+var_cols <- c(Source_header, source_cols, phylogroup_header, clermont_cols)
+
+find_firstlast <- function(x){
+        ST_other_coord <- fortify(p2$data) %>%
+        filter(isTip == TRUE) %>%
+        select(label, ST_other, y) %>%
+        arrange(y) %>%
+        filter(ST_other == x) %>%
+        df_return <- summarise(
+                firstocc = first(label),
+                lastocc = last(label),
+                count = n()
+        )
+        print(df_return)
+}
+
+#Create the tree
+p2 <- ggtree(tree) %<+%
+        genometa +
+        geom_tiplab(size = 0.25,
+                align = TRUE,
+                linetype = NULL,
+                aes(color = as.factor(Revised_Source_Niche))
+                ) +
+        geom_tiplab(size = 0.25,
+                align = TRUE,
+                linetype = NULL,
+                offset = 200,
+                aes(label = mlst..ST)
+                ) +
+        geom_tippoint(size = 0.5,
+                align = TRUE,
+                linetype = NULL,
+                aes(color = as.factor(clermontyping..clermontyping_phylogroup))
+                ) +
+        scale_fill_manual(
+                aesthetics = c("colour", "fill"),
+                values = var_cols
+        ) + 
+        guides(color = guide_legend(override.aes = list(size = 5)), shape = guide_legend(override.aes = list(size = 5)))
+
+#p2 <- gheatmap(
+#        p = p2,
+#        data = Human_difrep)
+#,
+#        colnames_offset_y = -0.1,
+#        font.size = 1.5,
+#        hjust = 0,
+#        colnames = TRUE,
+#        offset = 1,
+#        width = 0.3,
+#        color = rgb(220, 220, 220, max = 255, alpha = 50)
+#        ) +
+#theme(legend.position = "bottom",
+#        legend.box = "vertical",
+#        legend.key.size = unit(1, "mm"),
+#        legend.title = element_blank(),
+#        legend.text = element_text(size = 8)
+#        ) +
+#scale_fill_manual(
+#        aesthetics = c("colour", "fill"),
+#        values = mycolslist,
+#        na.value = 'grey'
+#        ) +
+#geom_tiplab(
+#        aes(label = myextralab),
+#        align = TRUE,
+#        linetype = NULL,
+#        offset = 0.00575,
+#        size = 0.5
+#        ) +
+#        ylim(NA, 100)
+```
+
+```{r}
+
+#Define our colours for our phylogroups
+clermont_cols <- c('#ffe119', '#4363d8', '#f58231', '#dcbeff', '#800000', '#000075', '#9A6324', 'red')
+
+#Assign our color names for phylogroups
+names(clermont_cols) <- c("A", "B1",  "B2", "C", "D", "E", "F", "G")
+
+```
+
+
+
+```{r ST_exploration, echo=FALSE}
+library(ComplexHeatmap)
+library(grid)
+
+
+top_75_STs <- genometa %>% filter(clermontyping..clermontyping_phylogroup %in% names(clermont_cols)) %>% group_by(ST_new) %>% tally(sort = T) %>% head(75) %>% pull(ST_new) %>% sort()
+
+ST_order <- genometa %>%
+  filter(clermontyping..clermontyping_phylogroup %in% names(clermont_cols)) %>%
+  filter(ST_new %in% top_75_STs) %>%
+  group_by(ST_new, Revised_Source_Niche) %>% tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames("ST_new") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t() %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix() %>% colnames() %>% as.data.frame() %>% rename("ST_new" = ".")
+
+
+count_of_sources_per_ST <- genometa %>%
+  filter(ST_new %in% top_75_STs) %>%
+  group_by(Revised_Source_Niche, ST_new) %>%
+  tally() %>%
+  group_by(ST_new) %>%
+  tally() %>%
+  right_join(ST_order, by = 'ST_new')
+
+count_per_ST <- genometa %>%
+  filter(ST_new %in% top_75_STs) %>%
+  group_by(ST_new) %>% tally() %>%
+  right_join(ST_order, by = 'ST_new')
+
+count_per_source <- genometa %>%
+  filter(ST_new %in% top_75_STs) %>%
+  group_by(Revised_Source_Niche) %>%
+  tally(sort = T)
+
+clermont_cols_df <- as.data.frame(clermont_cols) %>% rownames_to_column('Phylogroup')
+
+annotation_df_phylogroups <- genometa %>% filter(clermontyping..clermontyping_phylogroup %in% names(clermont_cols)) %>% filter(ST_new %in% top_75_STs) %>% group_by(ST_new, clermontyping..clermontyping_phylogroup) %>%
+        tally() %>% slice(which.max(n)) %>% select(-n) %>% rename("Phylogroup" = clermontyping..clermontyping_phylogroup) %>% full_join(clermont_cols_df, by = "Phylogroup")
+
+clermont_cols_long <- annotation_df_phylogroups$clermont_cols
+
+names(clermont_cols_long) <- annotation_df_phylogroups$Phylogroup
+
+annotation_df_phylogroups <- ST_order %>% left_join(annotation_df_phylogroups, by = 'ST_new')
+
+clermont_cols_list <- list(Phylogroup = clermont_cols_long)
+
+heatmap_df <- genometa %>%
+  filter(clermontyping..clermontyping_phylogroup %in% names(clermont_cols)) %>%
+  filter(ST_new %in% top_75_STs) %>%
+  group_by(ST_new, Revised_Source_Niche) %>% tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames("ST_new") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t()
+
+column_ha = ComplexHeatmap::HeatmapAnnotation(
+        `ST-wise Source Count` = anno_barplot(axis = F,
+                count_of_sources_per_ST$n,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `ST Count` = anno_barplot(axis = F,
+                count_per_ST$n,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.75, "mm"),
+                numbers_rot = -270
+        ),
+        Phylogroup = annotation_df_phylogroups$Phylogroup,
+        col = clermont_cols_list
+)
+
+row_ha = ComplexHeatmap::rowAnnotation(
+        `Source Count` = anno_barplot(
+                count_per_source$n,
+                axis_param = list(side = "top"),
+                ylim = c(0, 4000)
+        ),
+        annotation_name_side = "top"
+)
+
+heatmap_df <- heatmap_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                column_split = 9,
+                cluster_rows = F,
+                cluster_column_slices = T,
+                matrix = heatmap_df,
+                right_annotation = row_ha,
+                bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90", "blue", "red"))(50),
+                column_names_gp = gpar(fontsize = 6),
+                show_heatmap_legend = FALSE)#, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.1f", pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 2)) })
+
+chm
+```
+
+
+## Top framed heatmap - UP TO HERE
+
+
+## FIX HERE onwards
+```{r}
+heatmap2_df <- genometa %>%
+        #filter(ST_new %nin% top_100_STs$ST_new) %>%
+        rename('Phylogroup' = clermontyping..clermontyping_phylogroup) %>% mutate(Phylogroup = factor(Phylogroup, levels = c("A", "B1",  "B2", "C", "D", "E", "F", "G", "E or cladeI", "cladeI", "cladeIII", "cladeIV", 'Unknown'))) %>% group_by(Phylogroup, Revised_Source_Niche) %>% tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames('Phylogroup') %>% mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t()
+
+count_total_strains_by_phylogroup <-
+        genometa %>%
+        #filter(ST_new %nin% top_100_STs$ST_new) %>%
+        rename('Phylogroup' = clermontyping..clermontyping_phylogroup) %>%
+        mutate(Phylogroup = factor(
+                Phylogroup,
+                levels = c(
+                        "A",
+                        "B1",
+                        "B2",
+                        "C",
+                        "D",
+                        "E",
+                        "F",
+                        "G",
+                        "E or cladeI",
+                        "cladeI",
+                        "cladeIII",
+                        "cladeIV",
+                        'Unknown'
+                )
+        )) %>% group_by(Phylogroup) %>% tally()
+
+count_sources_of_other_STs_by_phylogroup <-
+        genometa %>%
+        #filter(ST_new %nin% top_100_STs$ST_new) %>%
+        rename('Phylogroup' = clermontyping..clermontyping_phylogroup) %>%
+        mutate(Phylogroup = factor(
+                Phylogroup,
+                levels = c(
+                        "A",
+                        "B1",
+                        "B2",
+                        "C",
+                        "D",
+                        "E",
+                        "F",
+                        "G",
+                        "E or cladeI",
+                        "cladeI",
+                        "cladeIII",
+                        "cladeIV",
+                        'Unknown'
+                )
+        )) %>%  group_by(Phylogroup, Revised_Source_Niche) %>% tally() %>% group_by(Phylogroup) %>% summarise(counts = n())
+
+#Define our colours for our phylogroups
+clermont_cols2 <- c('#ffe119', '#4363d8', '#f58231', '#dcbeff', '#800000', '#000075', '#9A6324', 'red', '#3cb44b',  'white', 'grey66', 'grey33', 'grey0')
+
+#Assign our color names for phylogroups
+names(clermont_cols2) <- c("A", "B1",  "B2", "C", "D", "E", "F", "G", "E or cladeI", "cladeI", "cladeIII", "cladeIV", 'Unknown')
+
+clermont_cols2_list <- list(Phylogroup = clermont_cols2)
+
+column_ha2 = ComplexHeatmap::HeatmapAnnotation(
+        `ST-wise Source Count` = anno_barplot(axis = F,
+                count_sources_of_other_STs_by_phylogroup$counts,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `ST Count` = anno_barplot(axis = F,
+                count_total_strains_by_phylogroup$n,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.75, "mm"),
+                numbers_rot = -270
+        ),
+        'Phylogroup' = count_sources_of_other_STs_by_phylogroup$Phylogroup,
+        col = clermont_cols2_list
+)
+
+heatmap2_df <- heatmap2_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+
+chm2 <-
+        ComplexHeatmap::Heatmap(
+                cluster_rows = F,
+                cluster_columns = F,
+                matrix = heatmap2_df,
+                #right_annotation = row_ha,
+                bottom_annotation = column_ha2,
+                col = colorRampPalette(c("grey90", "blue", "red"))(100),
+                column_names_gp = gpar(fontsize = 6),
+                show_heatmap_legend = FALSE)
+
+
+
+chm2 + chm
+
+
+
+# Create a linear regression model
+model <- lm(count_of_sources_per_ST$counts_of_sources ~ count_of_ST$counts_of_st)
+
+# Extract the R-squared value
+rsquared <- summary(model)$r.squared
+
+# Print the R-squared value
+print(rsquared)
+
+#Check mean count of sources per top 100 ST
+count_of_sources_per_ST %>% pull(counts_of_sources) %>% mean()
+```
+
+```{r ST_exploration2, echo=FALSE}
+library(ComplexHeatmap)
+library(grid)
+
+#Generate a count of known STs
+known_STs <- genometa %>% filter(mlst..ST != "-") %>% select(starts_with("mlst..ST")) %>% unique() %>% nrow()
+
+#Generate a list of samples without known STs
+novel_ST_strains <- genometa  %>% filter(mlst..ST == "-")
+
+#Count how many samples have no known ST
+count_novels <- nrow(novel_ST_strains)
+
+# Generate a count of singletons
+n_singletons <- genometa %>% select(starts_with("mlst..allele")) %>% mutate(paste_alleles = paste0(mlst..allele1, mlst..allele2, mlst..allele3, mlst..allele4, mlst..allele5, mlst..allele6, mlst..allele7)) %>% select(paste_alleles) %>% table() %>% as.data.frame() %>% filter(Freq == 1) %>% nrow()
+
+#Produce placeholder STs
+placeholder_STs <- genometa %>% select(starts_with("mlst..")) %>% filter(mlst..ST == "-") %>% select(-mlst..ST) %>% unique()%>% 
+       # filter(
+       #         !grepl("-", allele1),
+       #         !grepl("-", allele2),
+       #         !grepl("-", allele3),
+       #         !grepl("-", allele4),
+       #         !grepl("-", allele5),
+       #         !grepl("-", allele6),
+       #         !grepl("-", allele7)) %>% 
+mutate(ST_new = paste0("^^",as.character(1:nrow(.)))) %>% mutate(allele_cat = paste0(mlst..allele1, mlst..allele2, mlst..allele3, mlst..allele4, mlst..allele5, mlst..allele6, mlst..allele7)) %>% select(ST_new, allele_cat)
+
+#Produce a list of the mlsts within the collection
+genometa <- genometa %>% select(name, starts_with("mlst..")) %>% mutate(allele_cat = paste0(mlst..allele1, mlst..allele2, mlst..allele3, mlst..allele4, mlst..allele5, mlst..allele6, mlst..allele7)) %>% left_join(placeholder_STs, by = "allele_cat") %>% select(-allele_cat) %>% mutate(ST_new = if_else(is.na(ST_new), mlst..ST, ST_new)) %>% select(name, ST_new) %>% left_join(genometa)
+
+top_50_STs <- genometa %>% group_by(ST_new) %>% tally() %>% arrange(desc(n)) %>% slice_max(n = 50, order_by = n)
+
+clermont_cols_df <- as.data.frame(clermont_cols) %>% rownames_to_column('Phylogroup')
+
+annotation_df_phylogroups <- genometa %>% filter(clermontyping..clermontyping_phylogroup %in% names(clermont_cols)) %>% filter(ST_new %in% top_50_STs$ST_new) %>% group_by(ST_new, clermontyping..clermontyping_phylogroup) %>%
+        tally() %>% arrange(ST_new, desc(n)) %>% slice(which.max(n)) %>% select(-n) %>% rename("Phylogroup" = clermontyping..clermontyping_phylogroup) %>% full_join(clermont_cols_df, by = "Phylogroup")
+
+count_of_sources_per_ST <- genometa %>% group_by(ST_new, Revised_Source_Niche) %>% tally() %>% group_by(ST_new) %>% summarise(counts_of_sources = n()) %>% filter(ST_new %in% top_50_STs$ST_new)
+
+count_of_ST <- genometa %>% group_by(ST_new) %>% summarise(counts_of_st = n()) %>% filter(ST_new %in% top_50_STs$ST_new)
+
+count_per_source <- genometa %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% group_by(Revised_Source_Niche) %>% summarise(counts_of_sources = n()) 
+
+clermont_cols_long <- annotation_df_phylogroups$clermont_cols
+
+names(clermont_cols_long) <- annotation_df_phylogroups$Phylogroup
+
+clermont_cols_list <- list(Phylogroup = clermont_cols_long)
+
+heatmap_df <- genometa %>% filter(clermontyping..clermontyping_phylogroup %in% names(clermont_cols)) %>% filter(ST_new %in% top_50_STs$ST_new) %>% group_by(ST_new, Revised_Source_Niche) %>% tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames("ST_new") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t()
+
+column_ha = ComplexHeatmap::HeatmapAnnotation(
+        `ST-wise Source Count` = anno_barplot(axis = F,
+                count_of_sources_per_ST$counts_of_sources,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `ST Count` = anno_barplot(axis = F,
+                count_of_ST$counts_of_st,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.75, "mm"),
+                numbers_rot = -270
+        ),
+        Phylogroup = annotation_df_phylogroups$Phylogroup,
+        col = clermont_cols_list
+)
+
+row_ha = ComplexHeatmap::rowAnnotation(
+        `Source Count` = anno_barplot(
+                count_per_source$counts_of_sources,
+                axis_param = list(side = "top"),
+                ylim = c(0, 4000)
+        ),
+        annotation_name_side = "top"
+)
+
+heatmap_df <- heatmap_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                column_split = 9,
+                cluster_rows = F,
+                cluster_column_slices = T,
+                matrix = heatmap_df,
+                right_annotation = row_ha,
+                bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90", "blue", "red"))(100),
+                column_names_gp = gpar(fontsize = 6),
+                show_heatmap_legend = FALSE)#, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.1f", pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 2)) })
+
+chm
+
+heatmap2_df <- genometa %>%
+        #filter(ST_new %nin% top_50_STs$ST_new) %>%
+        rename('Phylogroup' = clermontyping..clermontyping_phylogroup) %>% mutate(Phylogroup = factor(Phylogroup, levels = c("A", "B1",  "B2", "C", "D", "E", "F", "G", "E or cladeI", "cladeI", "cladeIII", "cladeIV", 'Unknown'))) %>% group_by(Phylogroup, Revised_Source_Niche) %>% tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames('Phylogroup') %>% mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t()
+
+count_total_strains_by_phylogroup <-
+        genometa %>%
+        #filter(ST_new %nin% top_50_STs$ST_new) %>%
+        rename('Phylogroup' = clermontyping..clermontyping_phylogroup) %>%
+        mutate(Phylogroup = factor(
+                Phylogroup,
+                levels = c(
+                        "A",
+                        "B1",
+                        "B2",
+                        "C",
+                        "D",
+                        "E",
+                        "F",
+                        "G",
+                        "E or cladeI",
+                        "cladeI",
+                        "cladeIII",
+                        "cladeIV",
+                        'Unknown'
+                )
+        )) %>% group_by(Phylogroup) %>% tally()
+
+count_sources_of_other_STs_by_phylogroup <-
+        genometa %>%
+        #filter(ST_new %nin% top_50_STs$ST_new) %>%
+        rename('Phylogroup' = clermontyping..clermontyping_phylogroup) %>%
+        mutate(Phylogroup = factor(
+                Phylogroup,
+                levels = c(
+                        "A",
+                        "B1",
+                        "B2",
+                        "C",
+                        "D",
+                        "E",
+                        "F",
+                        "G",
+                        "E or cladeI",
+                        "cladeI",
+                        "cladeIII",
+                        "cladeIV",
+                        'Unknown'
+                )
+        )) %>%  group_by(Phylogroup, Revised_Source_Niche) %>% tally() %>% group_by(Phylogroup) %>% summarise(counts = n())
+
+#Define our colours for our phylogroups
+clermont_cols2 <- c('#ffe119', '#4363d8', '#f58231', '#dcbeff', '#800000', '#000075', '#9A6324', 'red', '#3cb44b',  'white', 'grey66', 'grey33', 'grey0')
+
+#Assign our color names for phylogroups
+names(clermont_cols2) <- c("A", "B1",  "B2", "C", "D", "E", "F", "G", "E or cladeI", "cladeI", "cladeIII", "cladeIV", 'Unknown')
+
+clermont_cols2_list <- list(Phylogroup = clermont_cols2)
+
+column_ha2 = ComplexHeatmap::HeatmapAnnotation(
+        `ST-wise Source Count` = anno_barplot(axis = F,
+                count_sources_of_other_STs_by_phylogroup$counts,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `ST Count` = anno_barplot(axis = F,
+                count_total_strains_by_phylogroup$n,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 6),
+                numbers_offset = unit(0.75, "mm"),
+                numbers_rot = -270
+        ),
+        'Phylogroup' = count_sources_of_other_STs_by_phylogroup$Phylogroup,
+        col = clermont_cols2_list
+)
+
+heatmap2_df <- heatmap2_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+
+chm2 <-
+        ComplexHeatmap::Heatmap(
+                cluster_rows = F,
+                cluster_columns = F,
+                matrix = heatmap2_df,
+                #right_annotation = row_ha,
+                bottom_annotation = column_ha2,
+                col = colorRampPalette(c("grey90", "blue", "red"))(100),
+                column_names_gp = gpar(fontsize = 6),
+                show_heatmap_legend = FALSE)
+
+
+
+chm2 + chm
+
+
+
+# Create a linear regression model
+model <- lm(count_of_sources_per_ST$counts_of_sources ~ count_of_ST$counts_of_st)
+
+# Extract the R-squared value
+rsquared <- summary(model)$r.squared
+
+# Print the R-squared value
+print(rsquared)
+
+#Check mean count of sources per top 50 ST
+count_of_sources_per_ST %>% pull(counts_of_sources) %>% mean()
+```
+
+## Determine CIA res status
+```{r count CIA res, echo=FALSE, fig.height=8, fig.width=12}
+
+#Read in abritamr data
+abritamr <- read_delim("/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/abritamr_resistance.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE,
+    show_col_types = FALSE)
+
+#Create a list of samples in our tree
+sample_names <- tree$tip.label %>% as.data.frame() %>% rename('name' = '.') %>% mutate(name = str_replace_all(name, "\\'", ''))
+
+#Filter out samples not in the tree, add in those missing from dataframe
+abritamr<- left_join(sample_names, abritamr)
+
+#Prepend abritamr cols with ABRITAMR
+colnames(abritamr) <- gsub("^", "ABRITAMR.", colnames(abritamr))
+
+#Get rid of spaces from column names
+colnames(abritamr) <- gsub(" ", "_", colnames(abritamr))
+
+#Clean up 'name' column name for joining
+abritamr <- abritamr %>% rename("name" = "ABRITAMR.name")
+
+#Duplicate the table to determine CIA status
+CIA_table <- abritamr
+
+#Select CIA gene columns
+CIA_table <- CIA_table %>% select(name, matches('Quinolone'), matches('[^not_]ESBL'), matches('[^or_]Carbapenemase'), matches('Colistin'), matches('Macrolide'), matches('Lincosamide'))
+
+#Create a table for CIA resistance genes
+CIA_table <- CIA_table %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "glpT_[^,]+,?",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "uhpT_[^,]+,?",
+                                   ""))) %>%
+        #mutate(across(everything(),
+        #              ~str_replace(.x,
+        #                           "gyrA_[^,]+,?",
+        #                           ""))) %>%
+        #mutate(across(everything(),
+        #              ~str_replace(.x,
+        #                           "parC[^,]+,?",
+        #                           ""))) %>%
+        mutate(across(everything(),
+              ~str_replace(.x,
+                           "ptsI_[^,]+,?",
+                           ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "marR_[^,]+,?",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "blaEC-[0-9]+\\*?,?",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "^,",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   ",$",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~na_if(.,"")
+        ))
+
+#Replace cell contents with 1 for cells which are not empty
+CIA_table <- CIA_table %>%
+        column_to_rownames('name') %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   ".*",
+                                   "1"))) %>%
+        mutate(across(everything(),
+                      ~replace_na(.x,
+                                   "0"))) %>%
+        mutate(across(everything(),
+                      ~as.numeric(.x)))
+
+#Sum the number of CIA resistance genes and determine if greater than 1 (i.e. CIA resistant)
+CIA_res <- CIA_table %>%
+        mutate(CIA_res_status = rowSums(CIA_table)) %>%
+        select(CIA_res_status)  %>%
+        rownames_to_column('name') %>%
+        mutate(CIA_res_status = if_else(CIA_res_status >= 1, 1, 0))
+
+```
+
+
+## Determine MDR status
+
+```{r count MDR, echo=FALSE, fig.height=8, fig.width=12}
+
+#Duplicate the table to determine CIA status
+MDR_table <- abritamr %>%
+        #Remove unwanted genes
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "glpT_[^,]+,?",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "uhpT_[^,]+,?",
+                                   ""))) %>%
+        #mutate(across(everything(),
+        #              ~str_replace(.x,
+        #                           "gyrA_[^,]+,?",
+        #                           ""))) %>%
+        #mutate(across(everything(),
+        #              ~str_replace(.x,
+        #                           "parC[^,]+,?",
+        #                           ""))) %>%
+        mutate(across(everything(),
+             ~str_replace(.x,
+                   "ptsI_[^,]+,?",
+                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "marR_[^,]+,?",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "blaEC-[0-9]+\\*?,?",
+                                   ""))) %>%
+        #Remove commas at the start of a cell residual from gene deletion
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "^,",
+                                   ""))) %>%
+        #Remove commas at the end of a cell residual from gene deletion
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   ",$",
+                                   ""))) %>%
+        #Replace NAs with empty strings
+        mutate(across(everything(),
+                      ~na_if(.,"")
+        )) 
+
+#Convert to binary and numeric, convert column to rownames
+MDR_table <- MDR_table %>%
+        column_to_rownames('name') %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   ".*",
+                                   "1"))) %>%
+        mutate(across(everything(),
+                      ~replace_na(.x,
+                                   "0")))%>%
+        mutate(across(everything(),
+                      ~as.numeric(.x))) %>%
+        rownames_to_column('name')
+
+#Select Aminoglycoside resistance conferring columns
+MDR_table <- MDR_table %>% rowwise() %>%
+        mutate(Aminoglycoside_resistance = sum(
+                c_across(cols = c(
+                        `ABRITAMR.Amikacin/Kanamycin`,
+                        `ABRITAMR.Amikacin/Kanamycin/Tobramycin`,
+                        `ABRITAMR.Amikacin/Kanamycin/Tobramycin/Quinolone`,
+                        `ABRITAMR.Aminoglycosides_(Ribosomal_methyltransferase)`,
+                        `ABRITAMR.Fosfomycin`,
+                        `ABRITAMR.Gentamicin`,
+                        `ABRITAMR.Gentamicin/Kanamycin/Tobramycin`,
+                        `ABRITAMR.Gentamicin/Tobramycin/Apramycin`,
+                        `ABRITAMR.Kanamycin`,
+                        `ABRITAMR.Other_aminoglycoside_resistance_(non-RMT)`,
+                        `ABRITAMR.Streptomycin`
+                ))
+        )) %>% 
+        mutate(Betalactam_resistance = sum(
+                c_across(cols = c(
+                        `ABRITAMR.Beta-lactamase_(not_ESBL_or_carbapenemase)`,
+                        `ABRITAMR.Aztreonam`,
+                        #`ABRITAMR.Beta-lactamase_(unknown_spectrum)`,
+                        `ABRITAMR.Carbapenemase`,
+                        #`ABRITAMR.Carbapenemase_(KPC_variant)`,
+                        `ABRITAMR.Carbapenemase_(MBL)`,
+                        `ABRITAMR.ESBL`,
+                        `ABRITAMR.ESBL_(AmpC_type)`,
+                ))
+        )) %>% 
+        mutate(Ansamycin_resistance = sum(
+                c_across(cols = c(
+                        `ABRITAMR.Ampicillin/Chloramphenicol/Quinolone/Rifampin/Tetracycline`,
+                        `ABRITAMR.Rifamycin`,
+                ))
+        )) %>% 
+        mutate(Chloramphenicol_phenicol_resistance = sum(
+                c_across(cols = c(
+                        `ABRITAMR.Ampicillin/Chloramphenicol/Quinolone/Rifampin/Tetracycline`,
+                        `ABRITAMR.Chloramphenicol`,
+                        `ABRITAMR.Chloramphenicol/Florfenicol`,
+                        `ABRITAMR.Phenicol/Quinolone`,
+                ))
+        ))%>% 
+        mutate(Nirtofurantoin_resistance = `ABRITAMR.Nitrofurantoin`) %>% 
+        #mutate(Isoniazid_Triclosan_resistance = `ABRITAMR.Isoniazid/Triclosan`) %>% 
+        mutate(Polymixin_resistance = `ABRITAMR.Colistin`) %>%
+        mutate(Lincosamides_resistance = `ABRITAMR.Lincosamides`) %>% 
+        mutate(Macrolides_resistance = `ABRITAMR.Macrolide`) %>% 
+        mutate(Fluoroquinolone_quinolone_resistance = sum(
+                c_across(cols = c(
+                        `ABRITAMR.Amikacin/Kanamycin/Tobramycin/Quinolone`,
+                        `ABRITAMR.Ampicillin/Chloramphenicol/Quinolone/Rifampin/Tetracycline`,
+                        `ABRITAMR.Phenicol/Quinolone`,
+                        `ABRITAMR.Quinolone`
+                ))
+        )) %>% 
+        mutate(Sulfonamide_resistance = `ABRITAMR.Sulfonamide`) %>%
+        mutate(Tetracycline_resistance = sum(
+                c_across(cols = c(
+                        `ABRITAMR.Tetracycline`,
+                        `ABRITAMR.Ampicillin/Chloramphenicol/Quinolone/Rifampin/Tetracycline`
+                ))
+        )) %>%
+        mutate(Trimethoprim_resistance = `ABRITAMR.Trimethoprim`)
+
+#Select columns which we created in previous step and sum them
+MDR_table_small <- MDR_table %>%
+        select(name,
+               matches("_resistance"),
+               -`ABRITAMR.Other_aminoglycoside_resistance_(non-RMT)`
+               ) %>%
+        column_to_rownames('name') %>%
+        mutate(across(everything(),
+                      ~if_else(.x >= 1, 1, 0))) %>%
+        mutate(count_AMR_genes = rowSums(.))
+        
+#Determine if strains have more than 2 classes of resistance genes present (i.e. MDR status)
+MDR_status <- MDR_table_small %>%
+        select(count_AMR_genes) %>% 
+        mutate(MDR_status = if_else(count_AMR_genes > 2, 1, 0)) %>%
+        rownames_to_column('name')
+
+
+
+```
+
+```{r}
+#Create our long format table, binding in CIA res and MDR/gene count data from above
+long_format_abritamr_processed <- abritamr %>% 
+            mutate(across(everything(),
+                          ~str_replace(.x,
+                                       "glpT_[^,]+,?",
+                                       ""))) %>%
+            mutate(across(everything(),
+                          ~str_replace(.x,
+                                       "uhpT_[^,]+,?",
+                                       ""))) %>%
+    #mutate(across(everything(),
+    #              ~str_replace(.x,
+    #                           "gyrA_[^,]+,?",
+    #                           ""))) %>%
+    #mutate(across(everything(),
+    #              ~str_replace(.x,
+    #                           "parC[^,]+,?",
+    #                           ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "ptsI_[^,]+,?",
+                                   ""))) %>%
+        mutate(across(everything(),
+                  ~str_replace(.x,
+                               "marR_[^,]+,?",
+                               ""))) %>%
+        mutate(across(everything(),
+                  ~str_replace(.x,
+                               "blaEC-[0-9]+\\*?,?",
+                               ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   "^,",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~str_replace(.x,
+                                   ",$",
+                                   ""))) %>%
+        mutate(across(everything(),
+                      ~na_if(.,"")
+                      )) %>%
+        pivot_longer(2:ncol(abritamr),
+                     names_to = "resistance",
+                     values_drop_na = TRUE) %>%
+        mutate(class_includes_CIA_res = str_detect(resistance,
+                                    'Quinolone|[^not_]ESBL|[^or_]Carbapenemase|Colistin|Macrolide|Lincosamide')) %>%
+        rename('genes' = value) %>%
+        mutate(resistance_genes_present = 1) %>%
+        select(name, resistance, class_includes_CIA_res, resistance_genes_present, genes) %>%
+        mutate(resistance = str_replace(resistance, 'ABRITAMR\\.', '')) %>%
+        inner_join(MDR_status, by = 'name') %>% 
+        inner_join(CIA_res, by = 'name') %>% 
+        rename("Strain_MDR_status" = `MDR_status`, "Strain_CIA_status" = `CIA_res_status`, "Strain_count_of_AMR_gene_classes" = `count_AMR_genes`)
+
+long_format_abritamr_processed <- full_join(long_format_abritamr_processed, sample_names) %>% mutate(Strain_MDR_status = replace_na(Strain_MDR_status,0)) %>% mutate(Strain_count_of_AMR_gene_classes = replace_na(Strain_count_of_AMR_gene_classes,0)) %>% mutate(Strain_CIA_status = replace_na(Strain_CIA_status,0)) %>% mutate(genes = replace_na(genes, ''))
+
+genometa <- long_format_abritamr_processed %>% select(name, Strain_MDR_status, Strain_CIA_status) %>% unique() %>% inner_join(genometa)
+
+```
+
+```{r}
+mobtyper_results <- read_delim("analysis/TEA/mobtyper_results.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+
+
+#Read in our mobtyper data
+mobtyper_results <- mobtyper_results %>% rename('name' = sample_id) %>% filter(name %in% tree$tip.label)
+
+#Read in plasmid clusters
+clusters <- read_delim("delims/mobsuite/clusters.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+
+
+
+potential_plasmids <- clusters %>%
+        #Group by primary cluster ID
+        group_by(primary_cluster_id) %>%
+        #Create a list of quartiles of plasmid sizes for each plasmid in a cluster
+        summarise(q = list(quantile(size))) %>%
+        unnest_wider(q, names_repair = ~paste0('size_Q_', sub('%', '', .))) %>%
+        rename("primary_cluster_id" = size_Q_primary_cluster_id) %>%
+        #Bind this back to our original table
+        left_join(clusters, by = "primary_cluster_id") %>%
+        #Remove plasmids which arent within Q2-Q3 (Central 50% of distribution)
+        filter(size >= size_Q_25 & size <= size_Q_75) %>%
+        #Add the count of rep types for a given primary cluster ID
+        group_by(primary_cluster_id) %>%
+        add_count(`rep_type(s)`) %>%
+        #filter(primary_cluster_id %in% mobtyper_results$primary_cluster_id) %>%
+        #Identify the most common replicon types within the remaning plasmids
+        mutate(Majority_replicon_types = `rep_type(s)`[n == max(n)][1]) %>%
+        select(Majority_replicon_types, everything())
+
+#potential_plasmids %>% filter(grepl("IncF", Majority_replicon_types))
+
+IncF_RSTs <- genometa %>% select(name, `IncF_RST..IncF RST`)
+
+inferred_F_plasmids <- mobtyper_results %>%
+        group_by(name, primary_cluster_id) %>%
+        summarise(scaff_sum = sum(size)) %>%
+        filter(primary_cluster_id != "-") %>%
+        left_join(potential_plasmids, by = "primary_cluster_id") %>%
+        #Check with and without relaxase
+        select(1:9, `relaxase_type(s)`) %>%
+        #select(1:9) %>%
+        unique() %>%
+        #filter(grepl("IncF", Majority_replicon_types)) %>%
+        filter(grepl("IncF", Majority_replicon_types), grepl("MOBF", `relaxase_type(s)`)) %>%
+        slice(which.max(scaff_sum)) %>%
+        full_join(IncF_RSTs) %>%
+        select(name, `IncF_RST..IncF RST`, everything()) %>%
+        mutate(Typeable_F = if_else(`IncF_RST..IncF RST` == "F-:A-:B-", "No", " Yes")) %>%
+        mutate(Inferred_F_Plasmid = if_else(is.na(primary_cluster_id), "No", " Yes"))
+
+#inferred_F_plasmids <- inferred_F_plasmids %>% mutate(Typeable_F2 = factor(Typeable_F, levels = c("Plasmid present", "Plasmid absent"))) %>% mutate(Typeable_F = Typeable_F2) %>% mutate(Inferred_F_Plasmid2 = factor(Inferred_F_Plasmid, levels = c( "Plasmid inferred", "Plasmid not inferred"))) %>% mutate(Inferred_F_Plasmid = Inferred_F_Plasmid2) %>% select(-Typeable_F2, -Inferred_F_Plasmid2)
+
+cont_table <- table(inferred_F_plasmids$Inferred_F_Plasmid, inferred_F_plasmids$Typeable_F)
+
+library(caret) 
+confusionMatrix(cont_table)
+
+genometa <- inferred_F_plasmids %>% select(name, primary_cluster_id) %>% full_join(genometa)
+
+
+plasmids_for_tree <- potential_plasmids %>% filter(primary_cluster_id %in% colnames(heatmap_df)) %>% filter(grepl("Escherichia coli", organism)) %>% filter(grepl("MOBF", `relaxase_type(s)`)) %>% group_by(primary_cluster_id) %>% slice_head() %>% select(primary_cluster_id, sample_id) %>% as.data.frame()
+```
+
+```{r plasmid_exploration2, echo=FALSE}
+library(ComplexHeatmap)
+library(grid)
+
+# plastree <- read.tree("analysis/TEA/Plasmid_tree_mobsuite_top24_Fs.tree")
+# 
+# plastree$tip.label <- gsub("Reference", "JX077110", plastree$tip.label)
+# 
+# plas_treeplot <- ggtree(plastree) + geom_tiplab()
+# 
+# ref_w_cluster <- plas_treeplot$data %>% filter(isTip == TRUE) %>% arrange(desc(y)) %>% select(label) %>% rename('sample_id' = label) %>% left_join(plasmids_for_tree)
+# 
+# plas_tree_df <- genometa %>% select(`IncF_RST..IncF RST`, primary_cluster_id) %>% right_join(ref_w_cluster) %>% group_by(sample_id, primary_cluster_id, `IncF_RST..IncF RST`) %>% tally() %>% arrange(match(sample_id, ref_w_cluster$sample_id), desc(n)) %>% group_by(sample_id, primary_cluster_id) %>% slice_head(n = 1) %>% arrange(match(sample_id, ref_w_cluster$sample_id)) %>% rename("IncF" = `IncF_RST..IncF RST`) %>% as.data.frame()
+# 
+# rownames(plas_tree_df) <- plas_tree_df$sample_id
+# 
+# plas_treeplot <- ggtree(plastree) %<+%
+#         plas_tree_df +
+#         geom_tiplab(size = 4, aes(label = IncF))
+# 
+# order_for_df <- ref_w_cluster %>% pull(primary_cluster_id)
+# 
+# order_for_df <- c(order_for_df, "Other", "Unknown")
+
+genometa <- genometa %>% as.data.frame() %>% mutate("top25_IncF_clusters" = fct_lump_n(f = primary_cluster_id, n = 23)) %>% mutate(top25_IncF_clusters = if_else(is.na(top25_IncF_clusters), "Other", top25_IncF_clusters))
+
+heatmap_df <- genometa %>% group_by(top25_IncF_clusters, Revised_Source_Niche) %>%
+        tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t() %>% as.data.frame() #%>% select(all_of(order_for_df)) %>% as.matrix()
+
+heatmap_df <- heatmap_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+
+plas_cluster_cols<- c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', 'grey100', 'grey75', 'grey50', 'grey25', 'grey0')
+
+plas_cluster_cols_df <- colnames(heatmap_df) %>% as.data.frame() %>% rename("primary_cluster_id" = ".")
+
+plas_cluster_cols_df$colors <- plas_cluster_cols
+
+count_of_clusters <- genometa %>% group_by(top25_IncF_clusters) %>% tally() %>% arrange(match(top25_IncF_clusters, colnames(heatmap_df)))
+
+ColV_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, ColV) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(ColV = if_else(ColV == 0, "ColV Negative", "ColV Positive")) %>% 
+        pivot_wider(names_from = "ColV", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(`ColV Positive`, `ColV Negative`)
+
+SenB_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, ABRICATE..vfdb_senB) %>% rename('senB' = `ABRICATE..vfdb_senB`) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(senB = if_else(senB == 0, "senB Negative", "senB Positive")) %>% 
+        pivot_wider(names_from = "senB", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(`senB Positive`, `senB Negative`)
+
+Phylogroup_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, clermontyping..clermontyping_phylogroup) %>% rename('Phylogroup' = `clermontyping..clermontyping_phylogroup`) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% 
+        pivot_wider(names_from = "Phylogroup", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(any_of(names(clermont_cols2)))
+
+count_of_sources_per_IncF_RST <- genometa %>% group_by(`top25_IncF_clusters`, Revised_Source_Niche) %>% tally() %>% group_by(`top25_IncF_clusters`) %>% summarise(counts_of_sources = n()) %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df)))
+
+count_of_STs_per_IncF_RST <- genometa %>% group_by(`top25_IncF_clusters`, ST_new) %>% tally() %>% group_by(`top25_IncF_clusters`) %>% summarise(counts_of_sts = n()) %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df)))
+
+CIA_res_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, Strain_CIA_status) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(Strain_CIA_status = if_else(Strain_CIA_status == 0, "No CIA-R Genes", "CIA-R Genes")) %>% 
+        pivot_wider(names_from = "Strain_CIA_status", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(`CIA-R Genes`, `No CIA-R Genes`)
+
+MDR_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, Strain_MDR_status) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(Strain_MDR_status = if_else(Strain_MDR_status == 0, "Non MDR*", "MDR*")) %>% 
+        pivot_wider(names_from = "Strain_MDR_status", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(`MDR*`, `Non MDR*`)
+
+column_ha <- ComplexHeatmap::HeatmapAnnotation(
+        `Source Count` = anno_barplot(axis = F,
+                count_of_sources_per_IncF_RST$counts_of_sources,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `ColV Frequency` = anno_barplot(axis = F,
+                ColV_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("red", "white"))
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `SenB Frequency` = anno_barplot(axis = F,
+                SenB_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("blue", "white"))
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `CIA Resistance*` = anno_barplot(axis = F,
+                CIA_res_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("black", "white"))),
+        `Multidrug Resistance*` = anno_barplot(axis = F,
+                MDR_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("black", "white"))),
+        `Phylogroup Frequency` = anno_barplot(axis = F,
+                Phylogroup_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = clermont_cols2_list[[1]])
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `ST Count` = anno_barplot(axis = F,
+                count_of_STs_per_IncF_RST$counts_of_sts,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `Cluster Count` = anno_barplot(axis = F,
+                count_of_clusters$n,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ))
+
+#order_by_cluster <- primary_cluster_by_IncF %>% pull(`top25_IncF_clusters`)
+
+#heatmap_df<- heatmap_df %>% as.data.frame() %>% select(all_of(order_by_cluster)) %>% as.matrix()
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                #column_split = 9,
+                cluster_rows = F,
+                cluster_columns = F,
+                #cluster_column_slices = T,
+                matrix = heatmap_df,
+                #right_annotation = row_ha,
+                bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90", "blue", "red"))(100),
+                column_names_gp = gpar(fontsize = 8),
+                show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+
+chm
+
+
+```
+
+```{r}
+# collapsed_reps <- mobtyper_results %>% filter(primary_cluster_id != "-") %>% rename('name' = sample_id) %>% inner_join(metadata[,c(1,12)], by = 'name') %>% filter(grepl("IncF", `rep_type(s)`)) %>% group_by(name, primary_cluster_id) %>% mutate(rep_types_collapsed = paste0(`rep_type(s)`, collapse = ","))
+# 
+# # Function to sort comma-separated values in a string
+# sort_comma_separated <- function(x) {
+#   # Split string by commas
+#   values <- strsplit(x, split = ",")[[1]]
+#   
+#   # Sort the values
+#   sorted_values <- sort(values)
+#   
+#   # Combine sorted values back into a comma-separated string
+#   paste(sorted_values, collapse = ",")
+# }
+# 
+# #Sort the collapsed replicons
+# collapsed_reps$rep_types_collapsed <- sapply(collapsed_reps$rep_types_collapsed, sort_comma_separated)
+# 
+# #extract F plasmid clusters
+# F_plasmid_clusters <- collapsed_reps %>%
+#         arrange(desc(size)) %>% 
+#         inner_join(genometa) %>% 
+#         select(name, primary_cluster_id, `IncF_RST..IncF RST`, size, rep_types_collapsed) %>%
+#         group_by(name) %>% 
+#         slice(which.max(size)) %>%
+#         ungroup() %>%
+#         filter(`IncF_RST..IncF RST` != "F-:A-:B-") %>%
+#         filter(name %in% tree$tip.label) %>%
+#         select(name, primary_cluster_id)
+# 
+#genometa <- genometa %>% select(-primary_cluster_id)
+
+# genometa <- genometa %>% full_join(F_plasmid_clusters)
+# 
+# genometa <- genometa %>% mutate(primary_cluster_id = replace_na(primary_cluster_id, "No F Plasmid"))
+# 
+# 
+# heatmap_df <- heatmap_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+# 
+# primary_cluster_by_IncF<- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, primary_cluster_id) %>%
+#         tally() %>% arrange(`top50_IncF`, desc(n)) %>% slice(which.max(n)) %>% select(-n)
+# 
+# primary_cluster_by_IncF <- primary_cluster_by_IncF %>% arrange(top50_IncF == "Other", primary_cluster_id) %>% mutate(primary_cluster_id = if_else(top50_IncF == "Other", "Multiple", primary_cluster_id))
+# 
+# order_by_cluster <- primary_cluster_by_IncF %>% pull(`top50_IncF`)
+# 
+# top_50_F_clusters <- top_50_F_clusters %>% arrange(match(`top50_IncF`, order_by_cluster))
+# 
+# primary_cluster_by_IncF<- left_join(primary_cluster_by_IncF, plas_cluster_cols_df)
+# 
+# plas_clust_cols_list_inner <- primary_cluster_by_IncF$colors
+# 
+# names(plas_clust_cols_list_inner) <- primary_cluster_by_IncF$primary_cluster_id
+# 
+# plas_clust_cols_list <- list('Primary Cluster' = plas_clust_cols_list_inner)
+# 
+# ColV_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, ColV) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(ColV = if_else(ColV == 0, "ColV Negative", "ColV Positive")) %>% 
+#         pivot_wider(names_from = "ColV", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+#     mutate(newSum = select_if(., is.numeric) %>% 
+#                reduce(`+`)) %>% 
+#     mutate_if(is.numeric, list(~ ./newSum)) %>% 
+#     select(-newSum) %>% select(`ColV Positive`, `ColV Negative`)
+# 
+# SenB_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, ABRICATE..vfdb_senB) %>% rename('senB' = `ABRICATE..vfdb_senB`) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(senB = if_else(senB == 0, "senB Negative", "senB Positive")) %>% 
+#         pivot_wider(names_from = "senB", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+#     mutate(newSum = select_if(., is.numeric) %>% 
+#                reduce(`+`)) %>% 
+#     mutate_if(is.numeric, list(~ ./newSum)) %>% 
+#     select(-newSum) %>% select(`senB Positive`, `senB Negative`)
+# 
+# Phylogroup_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, clermontyping..clermontyping_phylogroup) %>% rename('Phylogroup' = `clermontyping..clermontyping_phylogroup`) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% 
+#         pivot_wider(names_from = "Phylogroup", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+#     mutate(newSum = select_if(., is.numeric) %>% 
+#                reduce(`+`)) %>% 
+#     mutate_if(is.numeric, list(~ ./newSum)) %>% 
+#     select(-newSum) %>% select(any_of(names(clermont_cols2)))
+# 
+# count_of_sources_per_IncF_RST <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, Revised_Source_Niche) %>% tally() %>% group_by(`top50_IncF`) %>% summarise(counts_of_sources = n()) %>% arrange(match(`top50_IncF`, order_by_cluster))
+# 
+# count_of_STs_per_IncF_RST <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, ST_new) %>% tally() %>% group_by(`top50_IncF`) %>% summarise(counts_of_sts = n()) %>% arrange(match(`top50_IncF`, order_by_cluster))
+# 
+# CIA_res_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, Strain_CIA_status) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(Strain_CIA_status = if_else(Strain_CIA_status == 0, "No CIA-R Genes", "CIA-R Genes")) %>% 
+#         pivot_wider(names_from = "Strain_CIA_status", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+#     mutate(newSum = select_if(., is.numeric) %>% 
+#                reduce(`+`)) %>% 
+#     mutate_if(is.numeric, list(~ ./newSum)) %>% 
+#     select(`CIA-R Genes`, `No CIA-R Genes`)
+# 
+# MDR_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, Strain_MDR_status) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(Strain_MDR_status = if_else(Strain_MDR_status == 0, "Non MDR*", "MDR*")) %>% 
+#         pivot_wider(names_from = "Strain_MDR_status", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+#     mutate(newSum = select_if(., is.numeric) %>% 
+#                reduce(`+`)) %>% 
+#     mutate_if(is.numeric, list(~ ./newSum)) %>% 
+#     select(`MDR*`, `Non MDR*`)
+# 
+# column_ha <- ComplexHeatmap::HeatmapAnnotation(
+#         `Source Count` = anno_barplot(axis = F,
+#                 count_of_sources_per_IncF_RST$counts_of_sources,
+#                 add_numbers = T,
+#                 numbers_gp = gpar(fontsize = 8),
+#                 numbers_offset = unit(0.5, "mm"),
+#                 numbers_rot = -270
+#         ),
+#         `ColV Frequency` = anno_barplot(axis = F,
+#                 ColV_frequency_matrix_top_50_F,
+#                 gp = gpar(fill = c("red", "white"))
+#                 #add_numbers = T,
+#                #numbers_gp = gpar(fontsize = 6),
+#                 #numbers_offset = unit(0.5, "mm"),
+#                 #numbers_rot = -270
+#         ),
+#         `SenB Frequency` = anno_barplot(axis = F,
+#                 SenB_frequency_matrix_top_50_F,
+#                 gp = gpar(fill = c("blue", "white"))
+#                 #add_numbers = T,
+#                #numbers_gp = gpar(fontsize = 6),
+#                 #numbers_offset = unit(0.5, "mm"),
+#                 #numbers_rot = -270
+#         ),
+#         `CIA Resistance*` = anno_barplot(axis = F,
+#                 CIA_res_frequency_matrix_top_50_F,
+#                 gp = gpar(fill = c("black", "white"))),
+#         `Multidrug Resistance*` = anno_barplot(axis = F,
+#                 MDR_frequency_matrix_top_50_F,
+#                 gp = gpar(fill = c("black", "white"))),
+#         `Phylogroup Frequency` = anno_barplot(axis = F,
+#                 Phylogroup_frequency_matrix_top_50_F,
+#                 gp = gpar(fill = clermont_cols2_list[[1]])
+#                 #add_numbers = T,
+#                #numbers_gp = gpar(fontsize = 6),
+#                 #numbers_offset = unit(0.5, "mm"),
+#                 #numbers_rot = -270
+#         ),
+#         `ST Count` = anno_barplot(axis = F,
+#                 count_of_STs_per_IncF_RST$counts_of_sts,
+#                 add_numbers = T,
+#                 numbers_gp = gpar(fontsize = 8),
+#                 numbers_offset = unit(0.5, "mm"),
+#                 numbers_rot = -270
+#         ),
+#         `IncF Count` = anno_barplot(axis = F,
+#                 top_50_F_clusters$n,
+#                 add_numbers = T,
+#                 numbers_gp = gpar(fontsize = 8),
+#                 numbers_offset = unit(0.5, "mm"),
+#                 numbers_rot = -270
+#         ),
+#         'Primary Cluster' = primary_cluster_by_IncF$primary_cluster_id,
+#         col = plas_clust_cols_list
+# )
+# 
+# order_by_cluster <- primary_cluster_by_IncF %>% pull(`top50_IncF`)
+# 
+# heatmap_df<- heatmap_df %>% as.data.frame() %>% select(all_of(order_by_cluster)) %>% as.matrix()
+# 
+# chm <-
+#         ComplexHeatmap::Heatmap(
+#                 #column_split = 9,
+#                 cluster_rows = F,
+#                 cluster_columns = F,
+#                 #cluster_column_slices = T,
+#                 matrix = heatmap_df,
+#                 #right_annotation = row_ha,
+#                 bottom_annotation = column_ha,
+#                 col = colorRampPalette(c("grey90", "blue", "red"))(100),
+#                 column_names_gp = gpar(fontsize = 8),
+#                 show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+# 
+# chm
+```
+
+# IncF RST wise plasmid summaries 
+```{r plasmid_exploration2, eval=FALSE, include=FALSE}
+library(ComplexHeatmap)
+library(grid)
+
+
+genometa <- genometa %>% as.data.frame() %>% mutate("top50_IncF" = fct_lump_n(f = `IncF_RST..IncF RST`, n = 50))
+
+top_50_F_clusters <- genometa %>% select(name, top50_IncF) %>% group_by(top50_IncF) %>% tally() %>% rename(`top50_IncF` = top50_IncF) 
+
+heatmap_df <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, Revised_Source_Niche) %>%
+        tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t()
+
+heatmap_df <- heatmap_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+
+primary_cluster_by_IncF<- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, primary_cluster_id) %>%
+        tally() %>% arrange(`top50_IncF`, desc(n)) %>% slice(which.max(n)) %>% select(-n)
+
+primary_cluster_by_IncF <- primary_cluster_by_IncF %>% arrange(top50_IncF == "Other", primary_cluster_id) %>% mutate(primary_cluster_id = if_else(top50_IncF == "Other", "Multiple", primary_cluster_id))
+
+order_by_cluster <- primary_cluster_by_IncF %>% pull(`top50_IncF`)
+
+top_50_F_clusters <- top_50_F_clusters %>% arrange(match(`top50_IncF`, order_by_cluster))
+
+#primary_cluster_by_IncF <- primary_cluster_by_IncF %>% mutate(primary_cluster_id = if_else(is.na(primary_cluster_id) & top50_IncF == "F-:A-:B-", "No"))
+
+primary_cluster_by_IncF<- left_join(primary_cluster_by_IncF, plas_cluster_cols_df)
+
+plas_clust_cols_list_inner <- primary_cluster_by_IncF$colors
+
+names(plas_clust_cols_list_inner) <- primary_cluster_by_IncF$primary_cluster_id
+
+plas_clust_cols_list <- list('Primary Cluster' = plas_clust_cols_list_inner)
+
+ColV_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, ColV) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(ColV = if_else(ColV == 0, "ColV Negative", "ColV Positive")) %>% 
+        pivot_wider(names_from = "ColV", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(`ColV Positive`, `ColV Negative`)
+
+SenB_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, ABRICATE..vfdb_senB) %>% rename('senB' = `ABRICATE..vfdb_senB`) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(senB = if_else(senB == 0, "senB Negative", "senB Positive")) %>% 
+        pivot_wider(names_from = "senB", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(`senB Positive`, `senB Negative`)
+
+Phylogroup_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, clermontyping..clermontyping_phylogroup) %>% rename('Phylogroup' = `clermontyping..clermontyping_phylogroup`) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% 
+        pivot_wider(names_from = "Phylogroup", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(any_of(names(clermont_cols2)))
+
+count_of_sources_per_IncF_RST <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, Revised_Source_Niche) %>% tally() %>% group_by(`top50_IncF`) %>% summarise(counts_of_sources = n()) %>% arrange(match(`top50_IncF`, order_by_cluster))
+
+count_of_STs_per_IncF_RST <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, ST_new) %>% tally() %>% group_by(`top50_IncF`) %>% summarise(counts_of_sts = n()) %>% arrange(match(`top50_IncF`, order_by_cluster))
+
+CIA_res_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, Strain_CIA_status) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(Strain_CIA_status = if_else(Strain_CIA_status == 0, "No CIA-R Genes", "CIA-R Genes")) %>% 
+        pivot_wider(names_from = "Strain_CIA_status", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(`CIA-R Genes`, `No CIA-R Genes`)
+
+MDR_frequency_matrix_top_50_F <- genometa %>% filter(`top50_IncF` %in% top_50_F_clusters$`top50_IncF`) %>% group_by(`top50_IncF`, Strain_MDR_status) %>% tally() %>% arrange(match(`top50_IncF`, order_by_cluster)) %>% mutate(Strain_MDR_status = if_else(Strain_MDR_status == 0, "Non MDR*", "MDR*")) %>% 
+        pivot_wider(names_from = "Strain_MDR_status", values_from = n, values_fill = 0) %>% column_to_rownames("top50_IncF") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(`MDR*`, `Non MDR*`)
+
+column_ha <- ComplexHeatmap::HeatmapAnnotation(
+        `Source Count` = anno_barplot(axis = F,
+                count_of_sources_per_IncF_RST$counts_of_sources,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `ColV Frequency` = anno_barplot(axis = F,
+                ColV_frequency_matrix_top_50_F,
+                gp = gpar(fill = c("red", "white"))
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `SenB Frequency` = anno_barplot(axis = F,
+                SenB_frequency_matrix_top_50_F,
+                gp = gpar(fill = c("blue", "white"))
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `CIA Resistance*` = anno_barplot(axis = F,
+                CIA_res_frequency_matrix_top_50_F,
+                gp = gpar(fill = c("black", "white"))),
+        `Multidrug Resistance*` = anno_barplot(axis = F,
+                MDR_frequency_matrix_top_50_F,
+                gp = gpar(fill = c("black", "white"))),
+        `Phylogroup Frequency` = anno_barplot(axis = F,
+                Phylogroup_frequency_matrix_top_50_F,
+                gp = gpar(fill = clermont_cols2_list[[1]])
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `ST Count` = anno_barplot(axis = F,
+                count_of_STs_per_IncF_RST$counts_of_sts,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `IncF Count` = anno_barplot(axis = F,
+                top_50_F_clusters$n,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        'Primary Cluster' = primary_cluster_by_IncF$primary_cluster_id,
+        col = plas_clust_cols_list
+)
+
+order_by_cluster <- primary_cluster_by_IncF %>% pull(`top50_IncF`)
+
+heatmap_df<- heatmap_df %>% as.data.frame() %>% select(all_of(order_by_cluster)) %>% as.matrix()
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                #column_split = 9,
+                cluster_rows = F,
+                cluster_columns = F,
+                #cluster_column_slices = T,
+                matrix = heatmap_df,
+                #right_annotation = row_ha,
+                bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90", "blue", "red"))(100),
+                column_names_gp = gpar(fontsize = 8),
+                show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+
+chm
+
+
+
+
+
+```
+
+# Partial cohort contig-wise virulence heatmap
+```{r}
+#Read in abricate data for tea dataset
+abricateR::abricateR(abricate_in = "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/genotype.txt", output = "TEA_abricate", writecsv = FALSE)
+
+#Rename our abricate data
+abricate <- TEA_abricate_simple_summary_N90L90
+
+
+
+small_mobtyper_hits <- mobtyper_results %>% select(name, contig_id, primary_cluster_id) %>% mutate(contig_id = str_replace(contig_id, " .*", ""))
+
+co_occurence_df <- TEA_abricate_co_occurence_N90L90 %>% rename('contig_id' = SEQUENCE) %>% left_join(small_mobtyper_hits, by = c("name", "contig_id"))
+
+co_occurence_df_wide <- co_occurence_df %>% group_by(name, primary_cluster_id) %>% summarise(same_scaff = paste0(same_scaff, collapse = " ")) %>% filter(primary_cluster_id %in% inferred_F_plasmids$primary_cluster_id, primary_cluster_id != is.na(primary_cluster_id)) %>% mutate(same_scaff2 = strsplit(same_scaff, " ")) %>%
+     unnest(same_scaff2) %>% 
+     arrange(same_scaff2) %>%  
+     pivot_wider(names_from = same_scaff2,
+            names_repair = "universal", values_from = same_scaff2, 
+        values_fill = 0, values_fn = length)
+
+heatmap_df_reconstructed_plasmids <- co_occurence_df_wide %>% left_join(IncF_RSTs) %>% mutate(pastecolnames = paste(name, primary_cluster_id, `IncF_RST..IncF RST`)) %>% as.data.frame() %>% select(-name, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`) %>% column_to_rownames("pastecolnames")
+
+
+primary_cluster_id_to_name <- co_occurence_df_wide %>% select(name, primary_cluster_id)
+
+primary_cluster_id_other <- genometa %>% select(name, top25_IncF_clusters)
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% inner_join(primary_cluster_id_other, by = "name") %>% filter(primary_cluster_id %in% genometa$top25_IncF_clusters)
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% mutate(newcolnames = paste(name, primary_cluster_id)) %>% as.data.frame() %>% select(-primary_cluster_id, -name) %>% column_to_rownames("newcolnames")
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% rename('primary_cluster_id' = top25_IncF_clusters) %>% left_join(plas_cluster_cols_df)
+
+set.seed(1)
+
+heatmap_df_3 <- co_occurence_df_wide %>% 
+        left_join(IncF_RSTs) %>%
+        filter(name %in% tree$tip.label) %>%
+        #filter(primary_cluster_id %in% genometa$top25_IncF_clusters) %>%
+        group_by(name) %>% 
+        slice_head(n = 1) %>%
+        filter(`IncF_RST..IncF RST` != "F-:A-:B-") %>% 
+        mutate(pastecolnames = paste(name, primary_cluster_id)) %>%
+        as.data.frame() %>%
+        select(-name, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`) %>%
+        column_to_rownames("pastecolnames") %>%
+        #column_to_rownames("name") %>%
+        #slice_sample(prop = 0.25) %>%
+        select(-contains("ColV")) %>%
+        select(-contains("card")) %>%
+        select(-contains("ISfinder")) %>%
+        select(-contains("plasmidfinder")) %>%
+        select(-contains("dfra5_848")) %>%
+        select(-contains("EC_custom_merA")) %>%
+        select(-contains("EC_custom_intI1")) %>%
+        as.data.frame() %>%
+        select_if(colSums(.) != 0) %>%
+        select_if(colSums(.) > 5)
+
+
+set.seed(1)
+
+heatmap_df_3_subset_indices <- sample((nrow(heatmap_df_3)/2)+1)
+
+heatmap_df_3_subset <- heatmap_df_3[heatmap_df_3_subset_indices,]
+
+heatmap_df_3_subset <- heatmap_df_3_subset %>%
+        select_if(colSums(.) != 0)
+
+subset_cols_df <- gsub(".* ([A-Z][A-Z][0-9][0-9][0-9])","\\1", rownames(heatmap_df_3_subset)) %>% as.data.frame() %>% rename("primary_cluster_id" = ".")
+
+primary_cluster_id_colours <- primary_cluster_id_to_name %>% unique() 
+
+subset_cols_df<- left_join(subset_cols_df, primary_cluster_id_colours)
+
+subset_cols_df <- subset_cols_df %>% mutate(primary_cluster_id = if_else(primary_cluster_id %in% genometa$top25_IncF_clusters, primary_cluster_id, "Other")) %>% mutate(colors = if_else(is.na(colors), "black", colors))
+
+cols_3 <- subset_cols_df$colors
+
+names(cols_3) <- subset_cols_df$primary_cluster_id
+
+sample_names_subset_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3_subset)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_source_subset_heatmap <- genometa %>% select(name, Revised_Source_Niche)
+
+sample_names_w_source_subset_heatmap <- left_join(sample_names_subset_heatmap, sample_names_w_source_subset_heatmap)
+
+source_cols_df_subset <- source_cols %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% rename("Colour" = ".")
+
+sample_names_w_source_subset_heatmap <- left_join(sample_names_w_source_subset_heatmap, source_cols_df_subset)
+
+source_cols_heatmap_subset <- sample_names_w_source_subset_heatmap$Colour
+
+names(source_cols_heatmap_subset) <- sample_names_w_source_subset_heatmap$Revised_Source_Niche
+
+#ColV Status by name
+sample_names_subset_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3_subset)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_ColV_subset_heatmap <- genometa %>% select(name, ColV) %>% mutate(ColV = if_else(ColV == 1, "ColV Positive", "ColV Negative")) %>% mutate(Colour = if_else(ColV == "ColV Positive", "red", "white")) 
+
+sample_names_w_ColV_subset_heatmap <- left_join(sample_names_subset_heatmap, sample_names_w_ColV_subset_heatmap)
+
+sample_names_w_ColV_subset <- sample_names_w_ColV_subset_heatmap$Colour
+
+names(sample_names_w_ColV_subset) <- sample_names_w_ColV_subset_heatmap$ColV
+
+cols3_list <- list(`Primary Cluster` = cols_3, "Source Colours" = source_cols_heatmap_subset, "ColV status" = sample_names_w_ColV_subset)
+
+row_ha <- ComplexHeatmap::rowAnnotation(
+        'Primary Cluster' = subset_cols_df$primary_cluster_id,
+        "Source Colours" = sample_names_w_source_subset_heatmap$Revised_Source_Niche,
+        "ColV status" = sample_names_w_ColV_subset_heatmap$ColV,
+        col = cols3_list
+)
+
+colnames(heatmap_df_3_subset) <- gsub("EC_custom_", "EC_", colnames(heatmap_df_3_subset))
+colnames(heatmap_df_3_subset) <- gsub("vfdb_", "", colnames(heatmap_df_3_subset))
+colnames(heatmap_df_3_subset) <- gsub("([^EC_])_.*", "\\1", colnames(heatmap_df_3_subset))
+colnames(heatmap_df_3_subset) <- gsub("_X57525.1", "", colnames(heatmap_df_3_subset))
+colnames(heatmap_df_3_subset) <- gsub("_pUTI89", "", colnames(heatmap_df_3_subset))
+colnames(heatmap_df_3_subset) <- gsub("_AY545598.5", "", colnames(heatmap_df_3_subset))
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                column_split = 7,
+                row_split = 6,
+                cluster_rows = T,
+                cluster_columns = T,
+                #cluster_column_slices = T,
+                matrix = heatmap_df_3_subset,
+                right_annotation = row_ha,
+                #bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90","red"))(4),
+                column_names_gp = grid::gpar(fontsize = 6),
+                row_names_gp = grid::gpar(fontsize = 0.25))#),
+                #show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", #pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+
+chm
+
+```
+
+# Full cohort contig-wise virulence heatmap
+
+```{r}
+#Read in abricate data for tea dataset
+abricateR::abricateR(abricate_in = "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/genotype.txt", output = "TEA_abricate", writecsv = FALSE)
+
+#Rename our abricate data
+abricate <- TEA_abricate_simple_summary_N90L90
+
+#Process mobtyper data for use
+small_mobtyper_hits <- mobtyper_results %>%
+        #Remove columns we dont need from mobtyper results
+        select(name, contig_id, primary_cluster_id, molecule_type) %>%
+        #Trim scaffold names
+        mutate(contig_id = str_replace(contig_id, " .*", ""))
+
+#Filter out any samples not in our cohort from the abricate data
+co_occurence_df <- TEA_abricate_co_occurence_N90L90 %>% filter(name %in% tree$tip.label) %>%
+        #Rename columns to allow joining of abricate data and mobtyper data
+        rename('contig_id' = SEQUENCE) %>% left_join(small_mobtyper_hits, by = c("name", "contig_id"))
+
+#Remove things mapping to the chromosome
+co_occurence_df_wide <- co_occurence_df %>% filter(molecule_type != "chromosome") %>%
+        #disabled - remove scaffolds not containing the string IncF (IncF Replicon genes)
+                #filter(grepl("IncF", same_scaff)) %>%
+        #Group by name and plasmid cluster ID and concatenate all associated
+        #       genes from the corresponding scaffolds into a single string
+        group_by(name, primary_cluster_id) %>%
+        summarise(same_scaff = paste0(same_scaff, collapse = " ")) %>%
+        #Remove any plasmid clusters which are either NAs or not listed in our
+        #       approved F plasmid list
+        filter(primary_cluster_id %in% inferred_F_plasmids$primary_cluster_id, primary_cluster_id !=is.na(primary_cluster_id)) %>%
+        #Split the concatenated genes into multiple columns
+        mutate(same_scaff2 = strsplit(same_scaff, " ")) %>%
+        unnest(same_scaff2) %>% 
+        arrange(same_scaff2) %>%  
+        pivot_wider(names_from = same_scaff2,
+            names_repair = "universal", values_from = same_scaff2, 
+        values_fill = 0, values_fn = length)
+
+heatmap_df_reconstructed_plasmids <- co_occurence_df_wide %>% left_join(IncF_RSTs) %>% mutate(pastecolnames = paste(name, primary_cluster_id, `IncF_RST..IncF RST`)) %>% as.data.frame() %>% select(-name, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`) %>% column_to_rownames("pastecolnames")
+
+
+primary_cluster_id_to_name <- co_occurence_df_wide %>% select(name, primary_cluster_id)
+
+primary_cluster_id_other <- genometa %>% select(name, top25_IncF_clusters)
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% inner_join(primary_cluster_id_other, by = "name") %>% filter(primary_cluster_id %in% genometa$top25_IncF_clusters)
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% mutate(newcolnames = paste(name, primary_cluster_id)) %>% as.data.frame() %>% select(-primary_cluster_id, -name) %>% column_to_rownames("newcolnames")
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% rename('primary_cluster_id' = top25_IncF_clusters) %>% left_join(plas_cluster_cols_df)
+
+heatmap_df_3 <- co_occurence_df_wide %>% 
+        left_join(IncF_RSTs) %>%
+        filter(name %in% tree$tip.label) %>%
+        filter(primary_cluster_id %in% genometa$top25_IncF_clusters) %>%
+        mutate(pastecolnames = paste(name, primary_cluster_id, `IncF_RST..IncF RST`)) %>%
+        as.data.frame() %>%
+        select(-name, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`) %>%
+        column_to_rownames("pastecolnames") %>%
+        #column_to_rownames("name") %>%
+        #slice_sample(prop = 0.25) %>%
+        select(-contains("ColV")) %>%
+        select(-contains("card")) %>%
+        select(-contains("ISfinder")) %>%
+        select(-contains("plasmidfinder")) %>%
+        select(-contains("dfra5_848")) %>%
+        select(-contains("EC_custom_merA")) %>%
+        select(-contains("EC_custom_intI1")) %>%
+        as.data.frame() %>%
+        select_if(colSums(.) != 0) %>%
+        select_if(colSums(.) > 5)
+
+
+cols_df <- gsub(".* ([A-Z][A-Z][0-9][0-9][0-9]) .*","\\1", rownames(heatmap_df_3)) %>% as.data.frame() %>% rename("primary_cluster_id" = ".")
+
+primary_cluster_id_colours <- primary_cluster_id_to_name %>% unique() 
+
+cols_df<- left_join(cols_df, primary_cluster_id_colours)
+
+cols_3 <- cols_df$colors
+
+names(cols_3) <- cols_df$primary_cluster_id
+
+sample_names_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_source_heatmap <- genometa %>% select(name, Revised_Source_Niche)
+
+sample_names_w_source_heatmap <- left_join(sample_names_heatmap, sample_names_w_source_heatmap)
+
+source_cols_df <- source_cols %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% rename("Colour" = ".")
+
+sample_names_w_source_heatmap <- left_join(sample_names_w_source_heatmap, source_cols_df)
+
+source_cols_heatmap <- sample_names_w_source_heatmap$Colour
+
+names(source_cols_heatmap) <- sample_names_w_source_heatmap$Revised_Source_Niche
+
+#ColV Status by name
+sample_names_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_ColV_heatmap <- genometa %>% select(name, ColV) %>% mutate(ColV = if_else(ColV == 1, "ColV Positive", "ColV Negative")) %>% mutate(Colour = if_else(ColV == "ColV Positive", "red", "white")) 
+
+sample_names_w_ColV_heatmap <- left_join(sample_names_heatmap, sample_names_w_ColV_heatmap)
+
+sample_names_w_ColV <- sample_names_w_ColV_heatmap$Colour
+
+names(sample_names_w_ColV) <- sample_names_w_ColV_heatmap$ColV
+
+cols3_list <- list(`Primary Cluster` = cols_3, "Source Colours" = source_cols_heatmap, "ColV status" = sample_names_w_ColV)
+
+row_ha <- ComplexHeatmap::rowAnnotation(
+        'Primary Cluster' = cols_df$primary_cluster_id,
+        "Source Colours" = sample_names_w_source_heatmap$Revised_Source_Niche,
+        "ColV status" = sample_names_w_ColV_heatmap$ColV,
+        col = cols3_list
+)
+
+colnames(heatmap_df_3) <- gsub("EC_custom_", "EC_", colnames(heatmap_df_3))
+colnames(heatmap_df_3) <- gsub("vfdb_", "", colnames(heatmap_df_3))
+colnames(heatmap_df_3) <- gsub("([^EC_])_.*", "\\1", colnames(heatmap_df_3))
+colnames(heatmap_df_3) <- gsub("_X57525.1", "", colnames(heatmap_df_3))
+colnames(heatmap_df_3) <- gsub("_pUTI89", "", colnames(heatmap_df_3))
+colnames(heatmap_df_3) <- gsub("_AY545598.5", "", colnames(heatmap_df_3))
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                column_split = 7,
+                row_split = 6,
+                cluster_rows = T,
+                cluster_columns = T,
+                #cluster_column_slices = T,
+                matrix = heatmap_df_3,
+                right_annotation = row_ha,
+                #bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90","red"))(4),
+                column_names_gp = grid::gpar(fontsize = 6),
+                row_names_gp = grid::gpar(fontsize = 0.25))#),
+                #show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", #pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+
+chm
+
+```
+
+# Partial cohort contig-wise resistance heatmap
+```{r}
+#Read in abricate data for tea dataset
+abricateR::abricateR(abricate_in = "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/genotype.txt", output = "TEA_abricate", writecsv = FALSE)
+
+#Rename our abricate data
+abricate <- TEA_abricate_simple_summary_N90L90
+
+small_mobtyper_hits <- mobtyper_results %>% select(name, contig_id, primary_cluster_id, molecule_type) %>% mutate(contig_id = str_replace(contig_id, " .*", ""))
+
+co_occurence_df <- TEA_abricate_co_occurence_N90L90 %>% rename('contig_id' = SEQUENCE) %>% left_join(small_mobtyper_hits, by = c("name", "contig_id"))
+
+co_occurence_df_wide <- co_occurence_df %>% group_by(name, primary_cluster_id) %>% summarise(same_scaff = paste0(same_scaff, collapse = " ")) %>% filter(primary_cluster_id %in% inferred_F_plasmids$primary_cluster_id, primary_cluster_id != is.na(primary_cluster_id)) %>% mutate(same_scaff2 = strsplit(same_scaff, " ")) %>%
+     unnest(same_scaff2) %>% 
+     arrange(same_scaff2) %>%  
+     pivot_wider(names_from = same_scaff2,
+            names_repair = "universal", values_from = same_scaff2, 
+        values_fill = 0, values_fn = length)
+
+heatmap_df_reconstructed_plasmids <- co_occurence_df_wide %>% left_join(IncF_RSTs) %>% mutate(pastecolnames = paste(name, primary_cluster_id, `IncF_RST..IncF RST`)) %>% as.data.frame() %>% select(-name, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`) %>% column_to_rownames("pastecolnames")
+
+
+primary_cluster_id_to_name <- co_occurence_df_wide %>% select(name, primary_cluster_id)
+
+primary_cluster_id_other <- genometa %>% select(name, top25_IncF_clusters)
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% inner_join(primary_cluster_id_other, by = "name") %>% filter(primary_cluster_id %in% genometa$top25_IncF_clusters)
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% mutate(newcolnames = paste(name, primary_cluster_id)) %>% as.data.frame() %>% select(-primary_cluster_id, -name) %>% column_to_rownames("newcolnames")
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% rename('primary_cluster_id' = top25_IncF_clusters) %>% left_join(plas_cluster_cols_df)
+
+set.seed(1)
+
+heatmap_df_3 <- co_occurence_df_wide %>% 
+        left_join(IncF_RSTs) %>%
+        filter(name %in% tree$tip.label) %>%
+        #filter(primary_cluster_id %in% genometa$top25_IncF_clusters) %>%
+        group_by(name) %>% 
+        slice_head(n = 1) %>%
+        filter(`IncF_RST..IncF RST` != "F-:A-:B-") %>% 
+        mutate(pastecolnames = paste(name, primary_cluster_id)) %>%
+        as.data.frame() %>%
+        select(-name, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`) %>%
+        column_to_rownames("pastecolnames") %>%
+        #column_to_rownames("name") %>%
+        #slice_sample(prop = 0.25) %>%
+        select(-contains("ColV")) %>%
+        select(-contains("vfdb")) %>%
+        select(-contains("ISfinder")) %>%
+        select(-contains("EC_custom")) %>%
+        #select(-contains("card")) %>%
+        #select(-contains("ISfinder")) %>%
+        select(-contains("plasmidfinder")) %>%
+        #select(-contains("dfra5_848")) %>%
+        #select(-contains("EC_custom_merA")) %>%
+        #select(-contains("EC_custom_intI1")) %>%
+        as.data.frame() %>%
+        select_if(colSums(.) != 0) %>%
+        select_if(colSums(.) > 5)
+
+
+set.seed(1)
+
+heatmap_df_3_subset_indices <- sample((nrow(heatmap_df_3)/2)+1)
+
+heatmap_df_3_subset <- heatmap_df_3[heatmap_df_3_subset_indices,]
+
+heatmap_df_3_subset <- heatmap_df_3_subset %>%
+        select_if(colSums(.) != 0)
+
+subset_cols_df <- gsub(".* ([A-Z][A-Z][0-9][0-9][0-9])","\\1", rownames(heatmap_df_3_subset)) %>% as.data.frame() %>% rename("primary_cluster_id" = ".")
+
+primary_cluster_id_colours <- primary_cluster_id_to_name %>% unique() 
+
+subset_cols_df<- left_join(subset_cols_df, primary_cluster_id_colours)
+
+subset_cols_df <- subset_cols_df %>% mutate(primary_cluster_id = if_else(primary_cluster_id %in% genometa$top25_IncF_clusters, primary_cluster_id, "Other")) %>% mutate(colors = if_else(is.na(colors), "black", colors))
+
+cols_3 <- subset_cols_df$colors
+
+names(cols_3) <- subset_cols_df$primary_cluster_id
+
+sample_names_subset_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3_subset)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_source_subset_heatmap <- genometa %>% select(name, Revised_Source_Niche)
+
+sample_names_w_source_subset_heatmap <- left_join(sample_names_subset_heatmap, sample_names_w_source_subset_heatmap)
+
+source_cols_df_subset <- source_cols %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% rename("Colour" = ".")
+
+sample_names_w_source_subset_heatmap <- left_join(sample_names_w_source_subset_heatmap, source_cols_df_subset)
+
+source_cols_heatmap_subset <- sample_names_w_source_subset_heatmap$Colour
+
+names(source_cols_heatmap_subset) <- sample_names_w_source_subset_heatmap$Revised_Source_Niche
+
+#ColV Status by name
+sample_names_subset_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3_subset)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_ColV_subset_heatmap <- genometa %>% select(name, ColV) %>% mutate(ColV = if_else(ColV == 1, "ColV Positive", "ColV Negative")) %>% mutate(Colour = if_else(ColV == "ColV Positive", "red", "white")) 
+
+sample_names_w_ColV_subset_heatmap <- left_join(sample_names_subset_heatmap, sample_names_w_ColV_subset_heatmap)
+
+sample_names_w_ColV_subset <- sample_names_w_ColV_subset_heatmap$Colour
+
+names(sample_names_w_ColV_subset) <- sample_names_w_ColV_subset_heatmap$ColV
+
+cols3_list <- list(`Primary Cluster` = cols_3, "Source Colours" = source_cols_heatmap_subset, "ColV status" = sample_names_w_ColV_subset)
+
+row_ha <- ComplexHeatmap::rowAnnotation(
+        'Primary Cluster' = subset_cols_df$primary_cluster_id,
+        "Source Colours" = sample_names_w_source_subset_heatmap$Revised_Source_Niche,
+        "ColV status" = sample_names_w_ColV_subset_heatmap$ColV,
+        col = cols3_list
+)
+
+colnames(heatmap_df_3_subset) <- gsub("EC_custom_", "EC_", colnames(heatmap_df_3_subset))
+colnames(heatmap_df_3_subset) <- gsub("card_", "", colnames(heatmap_df_3_subset))
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                column_split = 7,
+                row_split = 6,
+                cluster_rows = T,
+                cluster_columns = T,
+                #cluster_column_slices = T,
+                matrix = heatmap_df_3_subset,
+                right_annotation = row_ha,
+                #bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90","blue"))(4),
+                column_names_gp = grid::gpar(fontsize = 6),
+                row_names_gp = grid::gpar(fontsize = 0.25))#),
+                #show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", #pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+
+chm
+
+```
+
+# Full cohort contig-wise resistance heatmap
+```{r eval=FALSE, include=FALSE}
+#Read in abricate data for tea dataset
+abricateR::abricateR(abricate_in = "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/genotype.txt", output = "TEA_abricate", writecsv = FALSE)
+
+#Rename our abricate data
+abricate <- TEA_abricate_simple_summary_N90L90
+
+#Process mobtyper data for use
+small_mobtyper_hits <- mobtyper_results %>%
+        #Remove columns we dont need from mobtyper results
+        select(name, contig_id, primary_cluster_id, molecule_type) %>%
+        #Trim scaffold names
+        mutate(contig_id = str_replace(contig_id, " .*", ""))
+
+#Filter out any samples not in our cohort from the abricate data
+co_occurence_df <- TEA_abricate_co_occurence_N90L90 %>% filter(name %in% tree$tip.label) %>%
+        #Rename columns to allow joining of abricate data and mobtyper data
+        rename('contig_id' = SEQUENCE) %>% left_join(small_mobtyper_hits, by = c("name", "contig_id"))
+
+#Remove things mapping to the chromosome
+co_occurence_df_wide <- co_occurence_df %>% filter(molecule_type != "chromosome") %>%
+        #remove scaffolds not containing the string IncF (IncF Replicon genes)
+                #filter(grepl("IncF", same_scaff)) %>%
+        #Group by name and plasmid cluster ID and concatenate all associated
+        #genes from the corresponding scaffolds into a single string
+        group_by(name, primary_cluster_id) %>%  summarise(same_scaff = paste0(same_scaff, collapse = " "))
+
+co_occurence_df_wide <- genometa %>% select(name, top25_IncF_clusters) %>% right_join(co_occurence_df_wide) %>% filter(primary_cluster_id %in% inferred_F_plasmids$primary_cluster_id) %>% mutate(same_scaff2 = strsplit(same_scaff, " ")) %>%
+     unnest(same_scaff2) %>% 
+     arrange(same_scaff2) %>%  
+     pivot_wider(names_from = same_scaff2,
+            names_repair = "universal", values_from = same_scaff2, 
+        values_fill = 0, values_fn = length)
+
+heatmap_df_reconstructed_plasmids <- co_occurence_df_wide %>% left_join(IncF_RSTs) %>% mutate(pastecolnames = paste(name, top25_IncF_clusters, `IncF_RST..IncF RST`)) %>% as.data.frame() %>% select(-name, -top25_IncF_clusters, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`) %>% column_to_rownames("pastecolnames")
+
+
+primary_cluster_id_to_name <- co_occurence_df_wide %>% select(name, primary_cluster_id)
+
+primary_cluster_id_other <- genometa %>% select(name, top25_IncF_clusters)
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% inner_join(primary_cluster_id_other, by = "name")
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% mutate(newcolnames = paste(name, primary_cluster_id)) %>% as.data.frame() %>% select(-primary_cluster_id, -name) %>% column_to_rownames("newcolnames")
+
+primary_cluster_id_to_name <- primary_cluster_id_to_name %>% rename('primary_cluster_id' = top25_IncF_clusters) %>% left_join(plas_cluster_cols_df)
+
+heatmap_df_3 <- co_occurence_df_wide %>% 
+        left_join(IncF_RSTs) %>%
+        filter(name %in% tree$tip.label) %>%
+        filter(top25_IncF_clusters %in% genometa$top25_IncF_clusters) %>%
+        mutate(pastecolnames = paste(name, primary_cluster_id, `IncF_RST..IncF RST`)) %>%
+        as.data.frame() %>%
+        select(-name, -primary_cluster_id, -same_scaff, -`IncF_RST..IncF RST`, -top25_IncF_clusters) %>%
+        column_to_rownames("pastecolnames") %>%
+        #column_to_rownames("name") %>%
+        slice_sample(prop = 0.25) %>%
+        #select(-contains("ColV")) %>%
+        #select(-contains("vfdb")) %>%
+        select(-contains("ISfinder")) %>%
+        select(-contains("plasmidfinder")) %>%
+        select(-contains("dfra5_848")) %>%
+        select(-contains("EC_custom_merA")) %>%
+        select(-contains("EC_custom_intI1")) %>%
+        as.data.frame() %>%
+        select_if(colSums(.) != 0) %>%
+        select_if(colSums(.) > 5)
+
+
+cols_df <- gsub(".* ([A-Z][A-Z][0-9][0-9][0-9]) .*","\\1", rownames(heatmap_df_3)) %>% as.data.frame() %>% rename("primary_cluster_id" = ".")
+
+primary_cluster_id_colours <- primary_cluster_id_to_name %>% unique() 
+
+cols_df<- left_join(cols_df, primary_cluster_id_colours)
+
+cols_df <- cols_df %>% mutate(primary_cluster_id = if_else(primary_cluster_id %in% genometa$top25_IncF_clusters, primary_cluster_id, "Other")) %>% mutate(colors = if_else(is.na(colors), "black", colors))
+
+cols_3 <- cols_df$colors
+
+names(cols_3) <- cols_df$primary_cluster_id
+
+sample_names_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_source_heatmap <- genometa %>% select(name, Revised_Source_Niche)
+
+sample_names_w_source_heatmap <- left_join(sample_names_heatmap, sample_names_w_source_heatmap)
+
+source_cols_df <- source_cols %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% rename("Colour" = ".")
+
+sample_names_w_source_heatmap <- left_join(sample_names_w_source_heatmap, source_cols_df)
+
+source_cols_heatmap <- sample_names_w_source_heatmap$Colour
+
+names(source_cols_heatmap) <- sample_names_w_source_heatmap$Revised_Source_Niche
+
+#ColV Status by name
+sample_names_heatmap <- gsub(" .*","\\1", rownames(heatmap_df_3)) %>% as.data.frame() %>% rename("name" = ".")
+
+sample_names_w_ColV_heatmap <- genometa %>% select(name, ColV) %>% mutate(ColV = if_else(ColV == 1, "ColV Positive", "ColV Negative")) %>% mutate(Colour = if_else(ColV == "ColV Positive", "red", "white")) 
+
+sample_names_w_ColV_heatmap <- left_join(sample_names_heatmap, sample_names_w_ColV_heatmap)
+
+sample_names_w_ColV <- sample_names_w_ColV_heatmap$Colour
+
+names(sample_names_w_ColV) <- sample_names_w_ColV_heatmap$ColV
+
+cols3_list <- list(`Primary Cluster` = cols_3, "Source Colours" = source_cols_heatmap, "ColV status" = sample_names_w_ColV)
+
+row_ha <- ComplexHeatmap::rowAnnotation(
+        'Primary Cluster' = cols_df$primary_cluster_id,
+        "Source Colours" = sample_names_w_source_heatmap$Revised_Source_Niche,
+        "ColV status" = sample_names_w_ColV_heatmap$ColV,
+        col = cols3_list
+)
+
+#colnames(heatmap_df_3) <- gsub("EC_custom_", "EC_", colnames(heatmap_df_3))
+#colnames(heatmap_df_3) <- gsub("vfdb_", "", colnames(heatmap_df_3))
+#colnames(heatmap_df_3) <- gsub("([^EC_])_.*", "\\1", colnames(heatmap_df_3))
+#colnames(heatmap_df_3) <- gsub("_X57525.1", "", colnames(heatmap_df_3))
+#colnames(heatmap_df_3) <- gsub("_pUTI89", "", colnames(heatmap_df_3))
+#colnames(heatmap_df_3) <- gsub("_AY545598.5", "", colnames(heatmap_df_3))
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                column_split = 7,
+                row_split = 6,
+                cluster_rows = T,
+                cluster_columns = T,
+                #cluster_column_slices = T,
+                matrix = heatmap_df_3,
+                right_annotation = row_ha,
+                #bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90","red"))(4),
+                column_names_gp = grid::gpar(fontsize = 3),
+                row_names_gp = grid::gpar(fontsize = 0.25))#),
+                #show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", #pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+
+chm
+
+```
+
+# New mobtyper actual results (rather than contig report)
+```{r}
+mobtyper_results2 <- read_delim("analysis/TEA/mobtyper_results_concatenated.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+
+#Read in our mobtyper data
+mobtyper_results2 <- mobtyper_results2 %>% rename('name' = sample_id) %>% mutate(name = str_replace(name, ":.*", "")) %>% filter(name %in% tree$tip.label)
+
+#Define the columns we wish to split (taking everything other than name)
+#To do this we identify any columns containing a comma
+mob_cols_for_split <-
+        mobtyper_results2 %>%
+        select(`rep_type(s)`) %>%
+        colnames()
+
+#Split concatenated data (comma separated into columns)
+decat_mobtyper_results2 <- 
+        splitstackshape::cSplit(
+                indt = mobtyper_results2,
+                splitCols = mob_cols_for_split,
+                sep = ",",
+                direction = "long")
+
+decat_mobtyper_replicons_wide <- decat_mobtyper_results2 %>% select(name, `rep_type(s)`) %>% mutate(val = 1) %>% dplyr::group_by(name, `rep_type(s)`) %>%
+    dplyr::summarise(n = dplyr::n(), .groups = "drop") %>% pivot_wider(id_cols = name, names_from = `rep_type(s)`, values_from = n, values_fill = 0) %>% right_join(sample_names) %>% select(-`-`) %>% column_to_rownames("name") %>% select(sort(colnames(.))) %>% mutate(across(everything(), ~ replace_na(.x, 0)))
+
+
+source_cols_df <- source_cols %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% rename("Colour" = ".")
+
+sample_names_w_source_w_cols <- genometa %>% select(name, Revised_Source_Niche) %>% left_join(source_cols_df)
+
+source_cols_heatmap <- sample_names_w_source_w_cols$Colour
+
+names(source_cols_heatmap) <- sample_names_w_source_w_cols$Revised_Source_Niche
+
+source_cols_heatmap_list <- list("Source Colours" = source_cols_heatmap)
+
+decat_mobtyper_replicons_wide <- decat_mobtyper_replicons_wide %>% rownames_to_column("name")
+
+df_bind <- genometa %>% select(name, ST_new)
+
+decat_mobtyper_replicons_wide %>% select(name, matches("Inc")) %>% inner_join(df_bind, by = "name") %>% select(name, ST_new, matches("Inc")) %>% mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% group_by(ST_new) %>% summarise(mean = mean(newSum))
+```
+
+```{r MDS}
+library(MASS)
+library(vegan)
+library(ellipse)
+library(grid)
+library(gridExtra)
+
+plas_df <- decat_mobtyper_replicons_wide %>% column_to_rownames("name")
+
+plas_df[plas_df > 1] <- 1
+
+plas_df_MDS <- plas_df %>% select_if(~ !is.numeric(.) || sum(.) >= 20) %>% filter(rowSums(.) != 0) 
+
+plas_df_MDS <- unique(plas_df_MDS)
+
+#create distance object 
+plasdist <- vegdist(wisconsin(plas_df_MDS), method = "jaccard")
+# Get the baseline solution: start with cmdscale
+mds.null.plas <- isoMDS(plasdist, tol=1e-7)
+## See if you can get any better.
+  repeat{
+    mds.1.plas <- isoMDS(plasdist, k=2, initMDS(plasdist, k = 2), maxit=200, trace=FALSE, tol=1e-7)
+    print(mds.1.plas$stress)
+    print(mds.null.plas$stress)
+    if(mds.1.plas$stress < mds.null.plas$stress) break
+  }
+
+#read data into variable data
+mds.data <- genometa
+rownames(mds.data) <- genometa %>% pull(name)
+mds.metadata <- mds.data %>% dplyr::select(Revised_Source_Niche, `IncF_RST..IncF RST`, clermontyping..clermontyping_phylogroup, ST_new)
+
+# Scale solutions ("fix translation, rotation and scale")
+mds.null.plas <- postMDS(mds.null.plas, plasdist)
+mds.1.plas <- postMDS(mds.1.plas, plasdist)
+# Compare solutions
+plot(procrustes(mds.1.plas, mds.null.plas))
+#convert to dataframe
+mds.null.plas.df <- as.data.frame(mds.null.plas,
+                             attr(x = mds.null.plas,
+                                which = "dimnames"))
+mds.1.plas.df <- as.data.frame(mds.1.plas, 
+                          attr(x = mds.1.plas, 
+                              which = "dimnames"))
+
+mds.1.plas$points %>% rownames() -> mds.1.plas.df$Name
+mds.1.plas.df <- left_join(mds.1.plas.df, mds.metadata)
+
+mds.1.plas.df$ST <- as.factor(mds.1.plas.df$ST)
+
+#Plasmid by Sequence Type
+b1 <- ggplot() +
+  geom_point(data=mds.1.plas.df,
+             aes(x=points.1,
+                 y=points.2,
+                 color = Collection), 
+             size = 1.5) + # add the point markers
+  stat_ellipse(aes(x=mds.1.plas.df$points.1,
+                   y=mds.1.plas.df$points.2, 
+                   color = mds.1.plas.df$Collection)) +
+  scale_color_manual(breaks = collection_names, values = collection_colours)+
+  ggtitle("Nonmetric MDS - Plasmid Profile")+
+  xlab("Dimension 1")+
+  ylab("Dimension 2")+
+  coord_equal(xlim = c(-3, 4), ylim = c(-1.5, 2)) +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+```{r}
+
+explore_f_plasmids <- genometa %>%
+    select(name, `IncF_RST..IncF RST`, matches("plasmidfinder_IncF")) %>%
+    inner_join(mobtyper_results2) %>%
+    filter(grepl("IncF", `rep_type(s)`)) %>%
+    select(name, size, `IncF_RST..IncF RST`, `rep_type(s)`, `relaxase_type(s)`, mpf_type, `orit_type(s)`,
+           primary_cluster_id, matches("plasmidfinder_IncF")) %>%
+    mutate(rep_is_f = if_else(grepl("IncF", `rep_type(s)`), 1, 0),
+           relaxase_is_f = if_else(grepl("MOBF", `relaxase_type(s)`), 1, 0),
+           mpf_is_f = if_else(grepl("MPF_F", mpf_type), 1, 0),
+           orit_is_f = if_else(grepl("MOBF", `orit_type(s)`), 1, 0),
+    ) %>% select(name, size, `IncF_RST..IncF RST`, primary_cluster_id, matches("is_f$"), `rep_type(s)`, `relaxase_type(s)`, mpf_type, `orit_type(s)`, matches("ABRICATE")) %>% group_by(name) %>% mutate(Count_of_name = n()) %>% ungroup() %>% group_by(name, primary_cluster_id) %>% mutate(count_is_f = sum(rep_is_f, relaxase_is_f, mpf_is_f, orit_is_f)) %>% arrange(name, desc(size)) %>% ungroup() %>% as.data.frame()
+
+
+explore_f_plasmids %>% ggplot() + geom_boxplot(aes(x = as.character(count_is_f), y = size/1000), alpha =0) + geom_jitter(aes(x = Count_of_name, y = size/1000, alpha = 0.5, color = count_is_f), alpha = 0) + geom_hline(yintercept = 20, color = "red", linetype = "dashed")
+
+
+
+
+#Read in plasmid clusters
+clusters <- read_delim("delims/mobsuite/clusters.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+
+potential_plasmids <- clusters %>%
+        #Group by primary cluster ID
+        group_by(primary_cluster_id) %>%
+        #Create a list of quartiles of plasmid sizes for each plasmid in a cluster
+        summarise(q = list(quantile(size))) %>%
+        unnest_wider(q, names_repair = ~paste0('size_Q_', sub('%', '', .))) %>%
+        rename("primary_cluster_id" = size_Q_primary_cluster_id) %>%
+        #Bind this back to our original table
+        left_join(clusters, by = "primary_cluster_id") %>%
+        #Remove plasmids which arent within Q2-Q3 (Central 50% of distribution)
+        filter(size >= size_Q_25 & size <= size_Q_75) %>%
+        #Add the count of rep types for a given primary cluster ID
+        group_by(primary_cluster_id) %>%
+        add_count(`rep_type(s)`) %>%
+        #filter(primary_cluster_id %in% mobtyper_results$primary_cluster_id) %>%
+        #Identify the most common replicon types within the remaning plasmids
+        mutate(Majority_replicon_types = `rep_type(s)`[n == max(n)][1]) %>%
+        select(Majority_replicon_types, everything())
+
+#potential_plasmids %>% filter(grepl("IncF", Majority_replicon_types))
+
+IncF_RSTs <- genometa %>% select(name, `IncF_RST..IncF RST`)
+
+inferred_F_plasmids <- mobtyper_results %>%
+        group_by(name, primary_cluster_id) %>%
+        summarise(scaff_sum = sum(size)) %>%
+        filter(primary_cluster_id != "-") %>%
+        left_join(potential_plasmids, by = "primary_cluster_id") %>%
+        #Check with and without relaxase
+        select(1:9, `relaxase_type(s)`) %>%
+        #select(1:9) %>%
+        unique() %>%
+        #filter(grepl("IncF", Majority_replicon_types)) %>%
+        filter(grepl("IncF", Majority_replicon_types), grepl("MOBF", `relaxase_type(s)`)) %>%
+        slice(which.max(scaff_sum)) %>%
+        full_join(IncF_RSTs) %>%
+        select(name, `IncF_RST..IncF RST`, everything()) %>%
+        mutate(Typeable_F = if_else(`IncF_RST..IncF RST` == "F-:A-:B-", "No", " Yes")) %>%
+        mutate(Inferred_F_Plasmid = if_else(is.na(primary_cluster_id), "No", " Yes"))
+
+#inferred_F_plasmids <- inferred_F_plasmids %>% mutate(Typeable_F2 = factor(Typeable_F, levels = c("Plasmid present", "Plasmid absent"))) %>% mutate(Typeable_F = Typeable_F2) %>% mutate(Inferred_F_Plasmid2 = factor(Inferred_F_Plasmid, levels = c( "Plasmid inferred", "Plasmid not inferred"))) %>% mutate(Inferred_F_Plasmid = Inferred_F_Plasmid2) %>% select(-Typeable_F2, -Inferred_F_Plasmid2)
+
+cont_table <- table(inferred_F_plasmids$Inferred_F_Plasmid, inferred_F_plasmids$Typeable_F)
+
+library(caret) 
+confusionMatrix(cont_table)
+
+genometa <- inferred_F_plasmids %>% select(name, primary_cluster_id) %>% full_join(genometa)
+
+
+plasmids_for_tree <- potential_plasmids %>% filter(primary_cluster_id %in% colnames(heatmap_df)) %>% filter(grepl("Escherichia coli", organism)) %>% filter(grepl("MOBF", `relaxase_type(s)`)) %>% group_by(primary_cluster_id) %>% slice_head() %>% select(primary_cluster_id, sample_id) %>% as.data.frame()
+```
+
+```{r plasmid_exploration2, echo=FALSE}
+library(ComplexHeatmap)
+library(grid)
+
+# plastree <- read.tree("analysis/TEA/Plasmid_tree_mobsuite_top24_Fs.tree")
+# 
+# plastree$tip.label <- gsub("Reference", "JX077110", plastree$tip.label)
+# 
+# plas_treeplot <- ggtree(plastree) + geom_tiplab()
+# 
+# ref_w_cluster <- plas_treeplot$data %>% filter(isTip == TRUE) %>% arrange(desc(y)) %>% select(label) %>% rename('sample_id' = label) %>% left_join(plasmids_for_tree)
+# 
+# plas_tree_df <- genometa %>% select(`IncF_RST..IncF RST`, primary_cluster_id) %>% right_join(ref_w_cluster) %>% group_by(sample_id, primary_cluster_id, `IncF_RST..IncF RST`) %>% tally() %>% arrange(match(sample_id, ref_w_cluster$sample_id), desc(n)) %>% group_by(sample_id, primary_cluster_id) %>% slice_head(n = 1) %>% arrange(match(sample_id, ref_w_cluster$sample_id)) %>% rename("IncF" = `IncF_RST..IncF RST`) %>% as.data.frame()
+# 
+# rownames(plas_tree_df) <- plas_tree_df$sample_id
+# 
+# plas_treeplot <- ggtree(plastree) %<+%
+#         plas_tree_df +
+#         geom_tiplab(size = 4, aes(label = IncF))
+# 
+# order_for_df <- ref_w_cluster %>% pull(primary_cluster_id)
+# 
+# order_for_df <- c(order_for_df, "Other", "Unknown")
+
+genometa <- genometa %>% as.data.frame() %>% mutate("top25_IncF_clusters" = fct_lump_n(f = primary_cluster_id, n = 23)) %>% mutate(top25_IncF_clusters = if_else(is.na(top25_IncF_clusters), "Other", top25_IncF_clusters))
+
+heatmap_df <- genometa %>% group_by(top25_IncF_clusters, Revised_Source_Niche) %>%
+        tally() %>%
+        pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% t() %>% as.data.frame() #%>% select(all_of(order_for_df)) %>% as.matrix()
+
+heatmap_df <- heatmap_df %>% as.data.frame() %>% rownames_to_column("Revised_Source_Niche") %>% mutate(Revised_Source_Niche = factor(Revised_Source_Niche, levels = c("Human", "Wild Animal", "Livestock", "Companion Animal", "Environmental", "Food"))) %>% arrange(Revised_Source_Niche) %>% column_to_rownames("Revised_Source_Niche") %>% as.matrix()
+
+plas_cluster_cols<- c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', 'grey100', 'grey75', 'grey50', 'grey25', 'grey0')
+
+plas_cluster_cols_df <- colnames(heatmap_df) %>% as.data.frame() %>% rename("primary_cluster_id" = ".")
+
+plas_cluster_cols_df$colors <- plas_cluster_cols
+
+count_of_clusters <- genometa %>% group_by(top25_IncF_clusters) %>% tally() %>% arrange(match(top25_IncF_clusters, colnames(heatmap_df)))
+
+ColV_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, ColV) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(ColV = if_else(ColV == 0, "ColV Negative", "ColV Positive")) %>% 
+        pivot_wider(names_from = "ColV", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(`ColV Positive`, `ColV Negative`)
+
+SenB_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, ABRICATE..vfdb_senB) %>% rename('senB' = `ABRICATE..vfdb_senB`) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(senB = if_else(senB == 0, "senB Negative", "senB Positive")) %>% 
+        pivot_wider(names_from = "senB", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(`senB Positive`, `senB Negative`)
+
+Phylogroup_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, clermontyping..clermontyping_phylogroup) %>% rename('Phylogroup' = `clermontyping..clermontyping_phylogroup`) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% 
+        pivot_wider(names_from = "Phylogroup", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(-newSum) %>% select(any_of(names(clermont_cols2)))
+
+count_of_sources_per_IncF_RST <- genometa %>% group_by(`top25_IncF_clusters`, Revised_Source_Niche) %>% tally() %>% group_by(`top25_IncF_clusters`) %>% summarise(counts_of_sources = n()) %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df)))
+
+count_of_STs_per_IncF_RST <- genometa %>% group_by(`top25_IncF_clusters`, ST_new) %>% tally() %>% group_by(`top25_IncF_clusters`) %>% summarise(counts_of_sts = n()) %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df)))
+
+CIA_res_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, Strain_CIA_status) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(Strain_CIA_status = if_else(Strain_CIA_status == 0, "No CIA-R Genes", "CIA-R Genes")) %>% 
+        pivot_wider(names_from = "Strain_CIA_status", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(`CIA-R Genes`, `No CIA-R Genes`)
+
+MDR_frequency_matrix_top25_IncF_clusters <- genometa %>% group_by(`top25_IncF_clusters`, Strain_MDR_status) %>% tally() %>% arrange(match(`top25_IncF_clusters`, colnames(heatmap_df))) %>% mutate(Strain_MDR_status = if_else(Strain_MDR_status == 0, "Non MDR*", "MDR*")) %>% 
+        pivot_wider(names_from = "Strain_MDR_status", values_from = n, values_fill = 0) %>% column_to_rownames("top25_IncF_clusters") %>%
+    mutate(newSum = select_if(., is.numeric) %>% 
+               reduce(`+`)) %>% 
+    mutate_if(is.numeric, list(~ ./newSum)) %>% 
+    select(`MDR*`, `Non MDR*`)
+
+column_ha <- ComplexHeatmap::HeatmapAnnotation(
+        `Source Count` = anno_barplot(axis = F,
+                count_of_sources_per_IncF_RST$counts_of_sources,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `ColV Frequency` = anno_barplot(axis = F,
+                ColV_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("red", "white"))
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `SenB Frequency` = anno_barplot(axis = F,
+                SenB_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("blue", "white"))
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `CIA Resistance*` = anno_barplot(axis = F,
+                CIA_res_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("black", "white"))),
+        `Multidrug Resistance*` = anno_barplot(axis = F,
+                MDR_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = c("black", "white"))),
+        `Phylogroup Frequency` = anno_barplot(axis = F,
+                Phylogroup_frequency_matrix_top25_IncF_clusters,
+                gp = gpar(fill = clermont_cols2_list[[1]])
+                #add_numbers = T,
+               #numbers_gp = gpar(fontsize = 6),
+                #numbers_offset = unit(0.5, "mm"),
+                #numbers_rot = -270
+        ),
+        `ST Count` = anno_barplot(axis = F,
+                count_of_STs_per_IncF_RST$counts_of_sts,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ),
+        `Cluster Count` = anno_barplot(axis = F,
+                count_of_clusters$n,
+                add_numbers = T,
+                numbers_gp = gpar(fontsize = 8),
+                numbers_offset = unit(0.5, "mm"),
+                numbers_rot = -270
+        ))
+
+#order_by_cluster <- primary_cluster_by_IncF %>% pull(`top25_IncF_clusters`)
+
+#heatmap_df<- heatmap_df %>% as.data.frame() %>% select(all_of(order_by_cluster)) %>% as.matrix()
+
+chm <-
+        ComplexHeatmap::Heatmap(
+                #column_split = 9,
+                cluster_rows = F,
+                cluster_columns = F,
+                #cluster_column_slices = T,
+                matrix = heatmap_df,
+                #right_annotation = row_ha,
+                bottom_annotation = column_ha,
+                col = colorRampPalette(c("grey90", "blue", "red"))(100),
+                column_names_gp = gpar(fontsize = 8),
+                show_heatmap_legend = FALSE, layer_fun = function(j, i, x, y, w, h, fill) { grid.text(sprintf("%0.2f", pindex(heatmap_df, i, j)), x = x, y = y, gp = gpar(col = "black", fontsize = 5)) })
+
+chm
+
+
+```

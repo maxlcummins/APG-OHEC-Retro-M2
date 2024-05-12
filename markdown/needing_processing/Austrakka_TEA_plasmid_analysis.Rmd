@@ -1,0 +1,293 @@
+---
+title: "AusTrakka_Mobsuite"
+author: "Max Cummins"
+date: "`r Sys.Date()`"
+output:
+    html_document:
+        theme: spacelab
+        toc: true
+        toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Read in our packages
+library(tidyverse)
+library(ggplot2)
+library(xml2)
+
+#Define our not in function
+`%nin%` <- Negate(`%in%`)
+```
+
+# Quality control AusTrakka Genomes
+
+Here we perform genomic analysis on our AusTrakka genomes.
+
+## Read in our tree and genomic and metadata dataset
+
+```{r Merge_analysis_outputs, include=FALSE}
+
+genometa <- vroom("delims/genometa_n5631.txt", show_col_types = FALSE)
+
+#Read in our tree
+tree <- ggtree::read.tree("analysis/pad.nwk")
+
+#Remove quotes from sample names
+tree$tip.label <- gsub("'", "", tree$tip.label)
+
+#Create a list of samples in our cohort
+sample_names <- tree$tip.label %>% as.data.frame() %>% rename('name' = '.')
+
+```
+
+```{r}
+mobtyper_results <- read_delim("analysis/mobtyper_results.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+
+
+collapsed_reps <- mobtyper_results %>% filter(primary_cluster_id != "-") %>% rename('name' = sample_id) %>% inner_join(genometa[,1:30], by = 'name') %>% filter(grepl("IncF", `rep_type(s)`)) %>% group_by(name, primary_cluster_id) %>% mutate(rep_types_collapsed = paste0(`rep_type(s)`, collapse = ","))
+
+# Function to sort comma-separated values in a string
+sort_comma_separated <- function(x) {
+  # Split string by commas
+  values <- strsplit(x, split = ",")[[1]]
+  
+  # Sort the values
+  sorted_values <- sort(values)
+  
+  # Combine sorted values back into a comma-separated string
+  paste(sorted_values, collapse = ",")
+}
+
+#Sort the collapsed replicons
+collapsed_reps$rep_types_collapsed <- sapply(collapsed_reps$rep_types_collapsed, sort_comma_separated)
+
+# Create an adjacency matrix:
+chord_data_clusters <- mobtyper_results %>% filter(primary_cluster_id != "-") %>% rename('name' = sample_id) %>% inner_join(genometa[,1:30], by = 'name') %>% select(name, primary_cluster_id, Revised_Source_Niche) %>%
+        unique() %>%
+        mutate(primary_cluster_id_other = fct_lump_n(primary_cluster_id, 50)) %>%
+        mutate(primary_cluster_id = primary_cluster_id_other) %>%
+        select(-primary_cluster_id_other) %>% 
+        filter(Revised_Source_Niche != "Unknown") %>%
+        group_by(primary_cluster_id, Revised_Source_Niche) %>%
+        summarise(counts = n()) %>%
+        mutate(primary_cluster_id = as.factor(primary_cluster_id)) %>% 
+        pivot_wider(id_cols = primary_cluster_id, names_from = Revised_Source_Niche, values_from = counts, values_fill = 0) %>%
+        column_to_rownames("primary_cluster_id") %>% as.matrix()
+
+
+# Load the circlize library
+library(circlize)
+
+# Make the circular plot
+chordDiagram(chord_data_clusters, transparency = 0.5)
+
+# Clockwise labels may require increasing the canvas margins
+circos.par(canvas.xlim=c(-1.5,1.5),canvas.ylim=c(-1.5,1.5))
+#df.test=df[,c(1,2)]
+
+circos.clear()
+
+par(cex = 0.5)
+
+chordDiagram(chord_data_clusters, annotationTrack = "grid", preAllocateTracks = 1)
+circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
+  xlim = get.cell.meta.data("xlim")
+  ylim = get.cell.meta.data("ylim")
+  sector.name = get.cell.meta.data("sector.index")
+  circos.text(mean(xlim), ylim[1] + cm_h(1.5), sector.name, facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5))
+  circos.axis(h = "top", labels.cex = 1, major.tick.length = 0.2, sector.index = sector.name, track.index = 2)
+}, bg.border = NA)
+
+
+```
+
+```{r}
+IncF_RST <- read_delim("analysis/IncF_RST.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+
+
+IncF_RST <- genometa %>% rename("IncF RST" = `IncF_RST..IncF RST`)
+
+# Create an adjacency matrix: 
+chord_data <- IncF_RST %>%
+        select(name, `IncF RST`, Revised_Source_Niche) %>%
+        unique() %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\?','-trunc')) %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\*','-like')) %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\!','-dupe'))%>%
+        filter(Revised_Source_Niche != "Unknown") %>%
+        group_by(`IncF RST`, Revised_Source_Niche) %>%
+        summarise(counts = n()) %>%
+        pivot_wider(id_cols = `IncF RST`, names_from = Revised_Source_Niche, values_from = counts, values_fill = 0) %>%
+        column_to_rownames("IncF RST") %>%
+        filter(rowSums(.) > 20) %>%
+        as.matrix()
+
+
+ColV_status_IncF_RST <- IncF_RST %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\?','-trunc')) %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\*','-like')) %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\!','-dupe'))%>%
+        group_by(`IncF RST`, ColV) %>%
+        tally() %>%
+        filter(`IncF RST` %in% rownames(chord_data)) %>%
+        pivot_wider(id_cols = `IncF RST`, names_from = ColV, values_from = n, values_fill = 0) %>%
+        rename('ColV Negative' = `0`, 'ColV Positive' = `1`)
+
+senB_status <- IncF_RST %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\?','-trunc')) %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\*','-like')) %>%
+        mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\!','-dupe'))%>%
+        group_by(`IncF RST`, ABRICATE..vfdb_senB) %>%
+        tally() %>%
+        filter(`IncF RST` %in% rownames(chord_data)) %>%
+        pivot_wider(id_cols = `IncF RST`, names_from = ABRICATE..vfdb_senB, values_from = n, values_fill = 0) %>%
+        rename('SenB Negative' = `0`, 'SenB Positive' = `1`)
+
+col_fun1 = colorRamp2(c(0, 100), c("white", "red"))
+
+#circos.track(track.index = 2)
+
+#circos.heatmap(mat = ColV_status_IncF_RST, cluster = FALSE,  col = col_fun1)
+
+
+chord_data_clusters2 <- mobtyper_results %>% rename('name' = sample_id) %>% inner_join(genometa, by = 'name') %>% mutate("IncF RST" = `IncF_RST..IncF RST`) %>% filter(primary_cluster_id != "-") %>% filter(grepl("IncF", `rep_type(s)`)) %>% group_by(primary_cluster_id, `IncF RST`)
+
+
+IncF_to_clusters <- mobtyper_results %>% rename('name' = sample_id) %>%
+    inner_join(IncF_RST, by = 'name') %>%
+    filter(primary_cluster_id != "-") %>%
+    filter(grepl("IncF", `rep_type(s)`)) %>%
+    mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\?','-trunc')) %>%
+    mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\*','-like')) %>%
+    mutate(`IncF RST` = str_replace_all(`IncF RST`, '\\!','-dupe'))%>%
+    group_by(primary_cluster_id, `IncF RST`) %>%
+    tally() %>%
+    filter(`IncF RST` %in% rownames(chord_data)) %>% filter(primary_cluster_id %in% rownames(chord_data_clusters)) %>% pivot_wider(names_from = "primary_cluster_id", values_from = "n", values_fill = 0) %>% as.data.frame()
+
+combined_mats <- chord_data %>% as.data.frame() %>% rownames_to_column('IncF RST') %>% inner_join(IncF_to_clusters) %>% inner_join(ColV_status_IncF_RST) %>% column_to_rownames('IncF RST') %>% as.matrix()
+
+group <- structure(c(rep("A", 26), rep("B", 6), rep("C", 40), rep("D", 2)), names = unlist(dimnames(combined_mats)))
+
+circos.clear()
+
+chordDiagram(combined_mats, transparency = 0.5, group =  group)
+
+circos.clear()
+
+# Clockwise labels may require increasing the canvas margins
+circos.par(canvas.xlim=c(-1.2,1.2),canvas.ylim=c(-1.2,1.2))
+
+chordDiagram(combined_mats, transparency = 0.5, group =  group, annotationTrack = "grid", 
+    preAllocateTracks = 1)
+
+# we go back to the first track and customize sector labels
+circos.track(track.index = 1, panel.fun = function(x, y) {
+    circos.text(CELL_META$xcenter, CELL_META$ylim[1], CELL_META$sector.index, 
+        facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 0.75)
+}, bg.border = NA)
+
+```
+
+```{r}
+combined_mats <- chord_data %>% as.data.frame() %>% rownames_to_column('IncF RST') %>% inner_join(ColV_status_IncF_RST) %>% inner_join(senB_status) %>% column_to_rownames('IncF RST') %>% select(-names(group[group == "B"])) %>% as.matrix()
+
+group <- structure(c(rep("A", 26), rep("C", 2), rep("D", 2)), names = unlist(dimnames(combined_mats)))
+
+
+
+circos.clear()
+
+# Clockwise labels may require increasing the canvas margins
+circos.par(canvas.xlim=c(-1.2,1.2),canvas.ylim=c(-1.2,1.2))
+
+chordDiagram(combined_mats, transparency = 0.5, group =  group, annotationTrack = "grid", 
+    preAllocateTracks = 1)
+
+# we go back to the first track and customize sector labels
+circos.track(track.index = 1, panel.fun = function(x, y) {
+    circos.text(CELL_META$xcenter, CELL_META$ylim[1], CELL_META$sector.index, 
+        facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 0.75)
+}, bg.border = NA)
+```
+
+```{r}
+combined_mats <- chord_data %>% as.data.frame() %>% rownames_to_column('IncF RST') %>% inner_join(ColV_status_IncF_RST) %>% column_to_rownames('IncF RST') %>% as.matrix()
+
+group <- structure(c(rep("A", 26), rep("B", 6), rep("D", 2)), names = unlist(dimnames(combined_mats)))
+
+
+
+circos.clear()
+
+# Clockwise labels may require increasing the canvas margins
+circos.par(canvas.xlim=c(-1.2,1.2),canvas.ylim=c(-1.2,1.2))
+
+chordDiagram(chord_data, transparency = 0.5, annotationTrack = "grid", 
+    preAllocateTracks = 1)
+
+# we go back to the first track and customize sector labels
+circos.track(track.index = 1, panel.fun = function(x, y) {
+    circos.text(CELL_META$xcenter, CELL_META$ylim[1], CELL_META$sector.index, 
+        facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 0.75)
+}, bg.border = NA)
+
+gap = calc_gap(chord_data, IncF_to_clusters, big.gap = 10, small.gap = 1)
+
+if("IncF RST" %in% colnames(IncF_to_clusters)){IncF_to_clusters <- IncF_to_clusters %>% column_to_rownames("IncF RST")}
+
+circos.clear()
+
+chordDiagram(IncF_to_clusters, transparency = 0.5, group =  group, annotationTrack = "grid", 
+    preAllocateTracks = 1)
+
+# we go back to the first track and customize sector labels
+circos.track(track.index = 1, panel.fun = function(x, y) {
+    circos.text(CELL_META$xcenter, CELL_META$ylim[1], CELL_META$sector.index, 
+        facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 0.75)
+}, bg.border = NA)
+```
+
+
+```{r}
+
+
+primary_cluster_by_phylogroup <-  mobtyper_results %>% filter(primary_cluster_id != "-") %>% rename('name' = sample_id) %>% inner_join(genometa[,1:30], by = 'name') %>% select(name, primary_cluster_id, Revised_Source_Niche) %>%
+        unique() %>%
+        select(-Revised_Source_Niche) %>% 
+        inner_join(IncF_RST, by = 'name') %>%
+        group_by(primary_cluster_id, clermontyping..clermontyping_phylogroup) %>%
+        tally() %>%
+        filter(primary_cluster_id %in% rownames(chord_data_clusters)) %>%
+        pivot_wider(id_cols = primary_cluster_id, names_from = clermontyping..clermontyping_phylogroup, values_from = n, values_fill = 0)
+
+IncF_to_clusters_t <- IncF_to_clusters %>% as.data.frame() %>% t() %>% as.data.frame()
+
+combined_mats <- chord_data_clusters %>% as.data.frame() %>% rownames_to_column('primary_cluster_id') %>% inner_join(primary_cluster_by_phylogroup) %>% column_to_rownames('primary_cluster_id') %>% as.matrix()
+
+
+group <- structure(c(rep("A", 124), rep("B", 6), rep("C", 13)), names = unlist(dimnames(combined_mats)))
+
+
+
+circos.clear()
+
+# Clockwise labels may require increasing the canvas margins
+circos.par(canvas.xlim=c(-1.1,1.1),canvas.ylim=c(-1.1,1.1))
+
+chordDiagram(combined_mats, transparency = 0.5, group = group, annotationTrack = "grid", 
+    preAllocateTracks = 1)
+
+# we go back to the first track and customize sector labels
+circos.track(track.index = 1, panel.fun = function(x, y) {
+    circos.text(CELL_META$xcenter, CELL_META$ylim[1], CELL_META$sector.index, 
+        facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 0.6)
+}, bg.border = NA)
+
+```
+

@@ -1,0 +1,1105 @@
+---
+title: "AusTrakka Genomic Analysis 5631"
+author: "Max Cummins"
+date: "`r Sys.Date()`"
+output:
+    html_document:
+        theme: spacelab
+        toc: true
+        toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Read in our packages
+library(tidyverse)
+library(ggplot2)
+library(xml2)
+
+#Define our not in function
+`%nin%` <- Negate(`%in%`)
+```
+
+# Quality control AusTrakka Genomes
+
+Here we perform genomic analysis on our AusTrakka genomes.
+
+## Define our file paths
+
+```{r}
+
+### TEA genome data
+TEA_abritamr_path <- "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/abritamr_resistance.txt"
+
+TEA_mlst_path <- "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/mlst.txt"
+
+TEA_clermontyping_path <- "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/clermontyping.txt"
+
+TEA_ectyper_path <- "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/ectyper.txt"
+
+TEA_fimtyper_path <- "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/fimtyper.txt"
+
+TEA_IncF_RST_path <- "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/IncF_RST.txt"
+
+genotype_path_TEA <- "/Users/131785/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/genotype.txt"
+
+```
+
+
+
+## Read in our genomic datasets
+
+```{r Merge_analysis_outputs, include=FALSE}
+
+#Read in all our paths starting with TEA
+for(i in ls(pattern = "TEA_")){
+        #First check if any have been read in yet
+        if(!exists("gene_df")){
+                #Read in first df
+                gene_df <- read_delim(file = get(i), delim = "\t", show_col_types = FALSE)
+                #Create a prefix for colnames based on filename
+                colname_prefix <- basename(get(i))
+                #Trim prefix
+                colname_prefix <- gsub("\\.txt", "", colname_prefix)
+                #Rename our columns with a prefix (e.g. abritamr_resistance..)
+                gene_df <- gene_df %>% rename_with(~str_c(colname_prefix,"..", .), everything())
+                #Fix name column back to name
+                colnames(gene_df) <- gsub(".*\\.name", "name", colnames(gene_df))
+        }
+        else{
+                #Read in next df
+               df_temp <- read_delim(file = get(i), delim = "\t", show_col_types = FALSE)
+               #Change Name to name (Cant remember which table this is... Phylogroup?)
+               colnames(df_temp) <- gsub("Name", "name", colnames(df_temp))
+               #As before, creating a prefix
+               colname_prefix <- basename(get(i))
+               #As before, trimming prefix
+               colname_prefix <- gsub("\\.txt", "", colname_prefix)
+               #Changing column names
+               df_temp <- df_temp %>% rename_with(~str_c(colname_prefix,"..", .), everything())
+               #Fix name column back to name
+               colnames(df_temp) <- gsub(".*\\.name", "name", colnames(df_temp))
+               #Bind our dataframes into one
+               gene_df <- full_join(gene_df, df_temp, by = "name")
+        }
+}
+
+```
+
+```{r message=TRUE, warning=TRUE}
+#Read in abricate data for tea dataset
+abricateR::abricateR(abricate_in = genotype_path_TEA, output = "TEA_abricate", writecsv = FALSE)
+
+#Rename our abricate data
+abricate <- TEA_abricate_simple_summary_N90L90
+
+#Add a prefix for the abricate columns
+abricate <- abricate %>% rename_with(~gsub("^", "ABRICATE..", .x)) %>% rename("name" = "ABRICATE..name") %>% rename("ColV" = "ABRICATE..ColV")
+
+#Combine both genotypic and abricate data
+geno <- inner_join(gene_df, abricate)
+
+#Remove all objects except geno and geno_no_abric
+rm(list= ls()[!(ls() %in% c("geno", "%nin%"))])
+
+```
+
+
+## Removing unwanted genomes
+
+First we must remove genomes which we do not want to include in downstream
+analysis. Mostly this will include our genomes which failed QC but we may also
+want to remove some extras based on a user defined list. We will do the latter
+as well to remove some Wastewater and Gull sourced genomes we are not yet able
+to include in our analysis.
+
+```{r file_paths, echo=FALSE}
+#Read in QC data
+QC_pass_names <- read_csv("delims/QC_pass_names.txt", show_col_types = FALSE)
+
+#Remove samples which failed QC
+geno <- geno %>% filter(name %in% QC_pass_names$name)
+
+#Read in the names of the quarantined samples
+WW_quarantine <- read_csv("~/Dropbox/PostDoc/Austrakka/Quarantine/purgelist.txt", col_names = 'name', show_col_types = FALSE)
+
+#Remove WW samples
+geno <- geno %>% filter(name %nin% WW_quarantine$name)
+
+#Generate list of potential gull quarantined samples (2019 cohort unpublished)
+Gull_quarantine <- read_csv("~/Dropbox/PostDoc/Austrakka/Quarantine/potential_quarantine_gull.txt", col_names = 'name', show_col_types = FALSE)
+
+#Remove gull samples
+geno <- geno %>% filter(name %nin% Gull_quarantine$name)
+
+#Remove all objects except geno and geno_no_abric
+rm(list= ls()[!(ls() %in% c("geno", "%nin%"))])
+```
+
+## Read in Metadata
+
+```{r file_paths, echo=FALSE}
+#Read in QC data
+metadata <- read_csv("delims/whole_metadata_MDU-AUSGen-TEA.csv", show_col_types = FALSE)
+
+#Collapse environmental and waste into a single category
+metadata <- metadata %>% mutate(Revised_Source_Niche = fct_collapse(Revised_Source_Niche, Environmental = c("Environmental", "Waste")))
+
+#Set revised source type to be revised source niche if it is 
+metadata <- metadata %>% mutate(Revised_Source_Type = if_else(is.na(Revised_Source_Type), as.character(Revised_Source_Niche), Revised_Source_Type))
+
+#Fix collection category for TEA
+metadata <- metadata %>% mutate(Collection = replace_na(Collection, replace = "TEA"))
+#Fix collection category for TEA
+metadata <- metadata %>% mutate(Intestinal_or_Extraintestinal = if_else(Collection == "TEA", replace_na(Intestinal_or_Extraintestinal, replace = "Other"), Intestinal_or_Extraintestinal))
+
+#Collapse environmental and waste into a single category
+metadata <- metadata %>% mutate(Revised_Source_Niche = fct_collapse(Revised_Source_Niche, 'Wild Animal' = c("Wild Animal", "Captive Animal")))
+
+#Replace two troublesome sample names (-B is a problem)
+metadata$name <- gsub("^AUSMDU00032107$", "AUSMDU00032107-B", metadata$name)
+metadata$name <- gsub("^AUSMDU00031978$", "AUSMDU00031978-B", metadata$name)
+
+#Read in our table for converting between TEA names
+convert_tea <- read_csv("~/Dropbox/PostDoc/Austrakka/AusTrakka_R/delims/name_convert_TEA.txt", show_col_types = FALSE)
+
+#join our table containing TEA names
+metadata <- full_join(convert_tea, metadata, by = "name")
+
+#Replace names according to conditionals which only operate on TEA genomes
+metadata <- metadata %>% mutate(Name = ifelse(!is.na(tea_name), name, Name)) %>% mutate(name = ifelse(!is.na(tea_name), tea_name, name)) %>% select(-tea_name)
+
+#Filter out extra genomes from Touchon et al which we didnt download
+metadata <- metadata %>% filter(!grepl("ESCO", name))
+
+#Remove samples which failed QC or are quarantined
+metadata <- metadata %>% filter(name %in% geno$name)
+
+#Remove samples for which no metadata exists
+# "AUSMDU00038293" "AUSMDU00047881" "AUSMDU00038291" "AUSMDU00038292" "AUSMDU00038294" "AUSMDU00038290"
+# "AUSMDU00038295"
+#These aren't meant to be included.
+geno <- geno %>% filter(name %in% metadata$name)
+
+
+#Read in our tree
+tree <- ggtree::read.tree("analysis/TEA/cgmlst_coreugate/pad.nwk")
+
+#Remove quotes from sample names
+tree$tip.label <- gsub("'", "", tree$tip.label)
+
+#Remove everything not in our tree (e.g. didnt cgMLST properly)
+geno <- geno %>% filter(name %in% tree$tip.label)
+```
+
+
+```{r}
+library(highcharter)
+library(htmlwidgets)
+library(dplyr)
+
+sankey1 <- metadata %>% select(Revised_Source_Niche, State, Intestinal_or_Extraintestinal)
+
+sankey1 <- sankey1 %>% mutate(State = replace_na(State, "Unknown"))
+
+sankey1 <- apply(sankey1, 2, FUN = function(x) paste0(x, " (",as.data.frame(table(x)[x])[,2],"/", as.character(nrow(metadata)), ")"))
+
+sankey1 <- as.data.frame(sankey1)
+
+hchart(data_to_sankey(sankey1), "sankey", name = "Collection Breakdown")  %>%
+        hc_plotOptions(series = list(dataLabels = list(style = list(fontSize = "20px"))))
+```
+
+
+```{r, MGEs}
+
+#Create a binary table of presence absence for genes from abricate
+geno_binary <- geno %>% mutate(across(starts_with('ABRICATE'), ~replace_na(.x, 0))) %>% mutate(across(starts_with('ABRICATE'), ~replace(.x, . > 1, 1)))
+
+#Combine with our metadata
+genometa <- inner_join(metadata, geno_binary, by = "name")
+
+#Combine with our metadata
+genometa_nonbinary <- inner_join(metadata, geno, by = "name") %>% mutate(across(starts_with('ABRICATE'), ~replace_na(.x, 0)))
+
+ColV_by_source_count <- genometa %>% group_by(ColV, Revised_Source_Niche) %>% summarise(counts = n())
+
+g <- ggplot(genometa_nonbinary, mapping = aes(fill = Revised_Source_Niche, x = ColV))
+
+Col <- c("Companion Animal" = "#59398d",
+         "Environmental" = "#709b46",
+         "Food" = "#c09f3d",
+         "Human" = "#48c595",
+         "Livestock" =  "#c26bbc",
+         "Wild Animal" = "#b9553d")
+
+g + geom_bar(position = "fill", stat = "count") + 
+        labs(x="Carry a ColV-plasmid",
+             y="Proportion of genomes") +
+        scale_fill_manual(values = Col) +
+        geom_text(aes(label = paste0("n=", after_stat(count))), stat='count', position = position_fill(vjust = 0.5), size = 10) +
+  theme_classic()
+
+```
+
+## ColV Carriage by Intestinal, Extraintestinal, Unknown or Other
+
+```{r}
+g <- genometa_nonbinary %>% filter(Source_Niche == "Human") %>% ggplot(mapping = aes(fill = as.character(ColV), x = Intestinal_or_Extraintestinal))
+
+Col2 <- c("0" = "#59398d",
+         "1" = "#709b46")
+
+g + geom_bar(position = "fill", stat = "count") + 
+        labs(x="Carry a ColV-plasmid",
+             y="Proportion of genomes") +
+        scale_fill_manual(values = Col2) +
+        geom_text(aes(label = paste0("n=", after_stat(count))), stat='count', position = position_fill(vjust = 0.5), size = 10) +
+  theme_classic()
+```
+
+```{r}
+g <- genometa_nonbinary %>% rename("ColV carriage" = "ColV") %>%
+        ggplot(mapping = aes(fill = `ColV carriage`,
+                             x = factor(Revised_Source_Niche,
+                                        level = c("Livestock",
+                                                  "Food",
+                                                  "Companion Animal",
+                                                  "Human",
+                                                  "Wild Animal",
+                                                  "Environmental")
+                                        )
+                             )
+        )
+
+Col2 <- c("0" = NA,
+         "1" = "#fb8072")
+
+bar_ColV_source<- g + geom_bar(position = "fill", stat = "count") + 
+        labs(x="Source",
+             y="Percentage of genomes with ColV plasmids") +
+        scale_fill_manual(values = Col2, na.value="transparent")  + 
+        scale_y_continuous(limits = c(0, 1), breaks = seq(0,1, 0.1), labels = c("0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%")) +
+        theme(axis.text.y = element_text(size=14),
+              axis.text.x = element_text(size=14),
+              axis.title.x = element_text(size=20),
+              axis.title.y = element_text(size=20),
+              legend.position = "none")
+
+ggsave(plot = bar_ColV_source, filename = "~/Dropbox/PostDoc/Austrakka/AusTrakka_R/figures/bar_ColV_source.pdf", width = 14, height = 8)
+```
+
+```{r, SKA_manual}
+
+STs <- geno %>% group_by(mlst..ST) %>% summarise(counts = n()) %>% arrange(desc(counts)) %>% head(11) %>% select(mlst..ST) %>% filter(mlst..ST != "-") %>% pull()
+
+geno %>% filter(mlst..ST %in% STs) %>% mutate(name = paste0("ln -s /projects/AusGEM/Users/Max/Manuscripts/Austrakka/pipelord/results/AusTrakka_TEA/ska/fasta/", name, ".skf ST", mlst..ST, "/", name, ".skf")) %>% select(name) %>% write_delim("delims/make_symlink_skfs.txt", delim = "\t")
+```
+
+```{r, plasmid_mobsuite}
+
+mobtyper_results <- read_delim("analysis/TEA/mobtyper_results.txt", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+
+
+collapsed_reps <- mobtyper_results %>% filter(primary_cluster_id != "-") %>% rename('name' = sample_id) %>% inner_join(metadata[,c(1,12)], by = 'name') %>% filter(grepl("IncF", `rep_type(s)`)) %>% group_by(name, primary_cluster_id) %>% mutate(rep_types_collapsed = paste0(`rep_type(s)`, collapse = ","))
+
+# Function to sort comma-separated values in a string
+sort_comma_separated <- function(x) {
+  # Split string by commas
+  values <- strsplit(x, split = ",")[[1]]
+  
+  # Sort the values
+  sorted_values <- sort(values)
+  
+  # Combine sorted values back into a comma-separated string
+  paste(sorted_values, collapse = ",")
+}
+
+#Sort the collapsed replicons
+collapsed_reps$rep_types_collapsed <- sapply(collapsed_reps$rep_types_collapsed, sort_comma_separated)
+
+#extract F plasmid clusters
+F_plasmid_clusters <- collapsed_reps %>%
+        arrange(desc(size)) %>% 
+        inner_join(genometa) %>% 
+        select(name, primary_cluster_id, `IncF_RST..IncF RST`, size, rep_types_collapsed) %>%
+        group_by(name) %>% 
+        slice(which.max(size)) %>%
+        ungroup() %>%
+        filter(`IncF_RST..IncF RST` != "F-:A-:B-") %>%
+        filter(name %in% tree$tip.label) %>%
+        select(name, primary_cluster_id)
+
+genometa <- genometa %>% full_join(F_plasmid_clusters)
+
+genometa <- genometa %>% mutate(primary_cluster_id = replace_na(primary_cluster_id, "No F Plasmid"))
+
+
+```
+
+```{r}
+
+df_all_ST = data.frame()
+
+for(i in list.dirs("~/Dropbox/PostDoc/Austrakka/AusTrakka_R/analysis/TEA/ska_manual")){
+        if(str_detect(string = i, pattern = "_dists")){
+                #ST extraction
+                ST <- gsub("_dists", "", basename(i))
+                #Read in SNP distances
+                dists <- read_delim(paste0(i,"/",ST,"_dist_100_SNP.distances.tsv"), 
+                    delim = "\t", escape_double = FALSE, 
+                    trim_ws = TRUE, show_col_types = FALSE)
+                
+                #Read in SNP Clusters
+                clusts <- read_delim(paste0(i,"/",ST,"_dist_100_SNP.clusters.tsv"), 
+                    delim = "\t", escape_double = FALSE, 
+                    trim_ws = TRUE, show_col_types = FALSE)
+                
+                
+                #Combine our metadata and our clusters for use in microreact
+                data_microreact <- left_join(clusts, genometa, by = c("ID" ="name")) %>% select(ID, starts_with("Revised_Source"), Collection_Year, Collection, fimtyper..Fimtype, ColV, Cluster__autocolour, primary_cluster_id, `IncF_RST..IncF RST`)
+                
+                data_microreact1 <- data_microreact %>% rename("Sample 1" = "ID") %>% rev()
+                
+                data_microreact2 <- data_microreact %>% rename("Sample 2" = "ID")
+                
+                dists2 <- inner_join(data_microreact1, dists, by = "Sample 1")
+                
+                dists2 <- inner_join(dists2, data_microreact2, by = "Sample 2")
+                
+                dists2 <- dists2 %>% mutate(across(where(is.factor), as.character))
+                
+                dists_w_metadata <- dists2 %>% rowwise() %>%
+                        mutate(col1 = pmin(Revised_Source_Niche.x, Revised_Source_Niche.y), col2 = pmax(Revised_Source_Niche.x, Revised_Source_Niche.y), source_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2)
+                
+                dists_w_metadata <- dists_w_metadata %>% rowwise() %>%
+                        mutate(col1 = pmin(Revised_Source_Type.x, Revised_Source_Type.y), col2 = pmax(Revised_Source_Type.x, Revised_Source_Type.y), source_type_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2)
+                
+                dists_w_metadata$ST.x <- ST
+                
+                df_all_ST <- rbind(df_all_ST, dists_w_metadata)
+                
+                write_delim(x = data_microreact1, file = paste0(i,"/",ST,"_metadata_microreact.tsv"), 
+                    delim = "\t")
+        }
+        
+}
+```
+
+```{r}
+dists_w_metadata_x_source <- df_all_ST %>% as.data.frame() %>% filter(Revised_Source_Niche.x != Revised_Source_Niche.y)
+
+df_all_ST_filtered_SNPs <- dists_w_metadata_x_source %>% as.data.frame() %>% filter(SNPs < 500)
+
+df_all_ST_filtered_SNPs <- df_all_ST_filtered_SNPs %>%
+        mutate(fimtyper..Fimtype.x = str_replace(fimtyper..Fimtype.x, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.y = str_replace(fimtyper..Fimtype.y, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.x = replace_na(fimtyper..Fimtype.x, "None")) %>%
+        mutate(fimtyper..Fimtype.y = replace_na(fimtyper..Fimtype.y, "None")) %>%
+        mutate(F_plasmid_shared = if_else(primary_cluster_id.x == primary_cluster_id.y, "Same F plasmid", "Different F plasmid")) %>% 
+        mutate(F_plasmid_shared = if_else(primary_cluster_id.x == "No F Plasmid" & primary_cluster_id.y == "No F Plasmid", "No F plasmid", F_plasmid_shared))
+        
+
+source_combos_names <- df_all_ST_filtered_SNPs %>% pull(source_combo) %>% unique() %>% sort()
+
+source_combo_cols <- c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000')[1:length(source_combos_names)]
+
+names(source_combo_cols) <- source_combos_names
+
+all_st_dist_plot <- df_all_ST_filtered_SNPs %>%
+        ggplot(aes(x = ST.x, y = SNPs)) +
+        geom_jitter(aes(color = source_combo, shape = F_plasmid_shared), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise SNP distance",
+                           limits = c(0, 500),
+                           breaks = c(seq(from = 0,
+                                          to = 500,
+                                          by = 25))) +
+        ggtitle("Cross source SNP distances") +
+        scale_color_manual(values = source_combo_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme_minimal() +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+
+ggsave(plot = all_st_dist_plot, filename = "~/Dropbox/PostDoc/Austrakka/AusTrakka_R/figures/x_dist_top10ST_500_SNPs.pdf", width = 14, height = 8)
+```
+
+
+```{r}
+df_all_ST_filtered_SNPs %>%
+        ggplot(aes(x = F_plasmid_shared, y = SNPs)) +
+        geom_jitter(aes(color = source_combo, shape = F_plasmid_shared), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise SNP distance",
+                           limits = c(0, 500),
+                           breaks = c(seq(from = 0,
+                                          to = 500,
+                                          by = 25))) +
+        ggtitle("Cross source SNP distances") +
+        scale_color_manual(values = source_combo_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme_minimal() +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+```
+
+
+```{r}
+dists_w_metadata_x_source_copy <- dists_w_metadata_x_source %>% as.data.frame()
+
+dists_w_metadata_x_source_copy <- dists_w_metadata_x_source_copy %>%
+        mutate(fimtyper..Fimtype.x = str_replace(fimtyper..Fimtype.x, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.y = str_replace(fimtyper..Fimtype.y, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.x = replace_na(fimtyper..Fimtype.x, "None")) %>%
+        mutate(fimtyper..Fimtype.y = replace_na(fimtyper..Fimtype.y, "None")) %>%
+        mutate(F_plasmid_shared = if_else(primary_cluster_id.x == primary_cluster_id.y, "Same F plasmid", "Different F plasmid")) %>% 
+        mutate(F_plasmid_shared = if_else(primary_cluster_id.x == "No F Plasmid" & primary_cluster_id.y == "No F Plasmid", "No F plasmid", F_plasmid_shared))
+
+source_combos_names <- dists_w_metadata_x_source_copy %>% pull(source_combo) %>% unique() %>% sort()
+
+source_combo_cols <- c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', 'black', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000')[1:length(source_combos_names)]
+
+names(source_combo_cols) <- source_combos_names
+
+all_st_dist_plot_all <- dists_w_metadata_x_source_copy %>%
+        ggplot(aes(x = ST.x, y = SNPs)) +
+        geom_jitter(aes(color = source_combo, shape = paste(primary_cluster_id.x == primary_cluster_id.y)), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise SNP distance",
+                           limits = c(0, 12000),
+                           breaks = c(seq(from = 0,
+                                          to = 12000,
+                                          by = 250))) +
+        ggtitle("Cross source SNP distances") +
+        scale_color_manual(values = source_combo_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+
+ggsave(plot = all_st_dist_plot_all, filename = "~/Dropbox/PostDoc/Austrakka/AusTrakka_R/figures/x_dist_top10ST_12000_SNPs.pdf", width = 14, height = 8)
+```
+
+```{r}
+dists_w_metadata_x_source_copy %>%
+        filter(F_plasmid_shared == "Same F plasmid") %>% 
+        ggplot(aes(x = primary_cluster_id.x, y = SNPs)) +
+        geom_jitter(aes(color = source_combo, shape = paste0(ColV.x, ColV.y)), size = 1, alpha = 0.5) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise SNP distance",
+                           limits = c(0, 12000),
+                           breaks = c(seq(from = 0,
+                                          to = 12000,
+                                          by = 250))) +
+        ggtitle("Cross source SNP distances") +
+        scale_color_manual(values = source_combo_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+```
+
+```{r}
+no_fimH30_ST131 <- dists_w_metadata_x_source %>% as.data.frame() %>% 
+        filter(paste(fimtyper..Fimtype.x, ST.x) != "fimH30 ST131")
+
+no_fimH30_ST131_all_st_dist_plot <- no_fimH30_ST131 %>% filter(SNPs <= 500) %>% 
+        ggplot(aes(x = ST.x, y = SNPs)) +
+        geom_jitter(aes(color = source_combo, shape = paste(ColV.x, ColV.y)), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise SNP distance",
+                           limits = c(0, 500),
+                           breaks = c(seq(from = 0,
+                                          to = 500,
+                                          by = 25))) +
+        ggtitle("Cross source SNP distances") +
+        scale_color_manual(values = source_combo_cols) +
+        scale_x_discrete(name = "Sequence Type") +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme_minimal() +
+        guides(name = "Source Combination", colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+
+ggsave(plot = no_fimH30_ST131_all_st_dist_plot, filename = "~/Dropbox/PostDoc/Austrakka/AusTrakka_R/figures/x_dist_no_ST131_fimH_top10ST_500_SNPs.pdf", width = 14, height = 8)
+```
+
+```{r eval=FALSE, include=FALSE}
+# write_delim(genometa, file = "delims/genometa_n5631.txt", delim = "\t")
+# 
+# write_delim(metadata, file = "delims/metadata_n5631.txt", delim = "\t")
+# 
+# no_fimH30_ST131 <- no_fimH30_ST131 %>% filter(`Sample 1` %in% tree$tip.label & `Sample 2` %in% tree$tip.label)
+# 
+# write_delim(no_fimH30_ST131, file = "delims/x_source_SNP_dists_no_fimH30_ST131_n5631.txt", delim = "\t")
+# 
+# df_all_ST_filtered_SNPs <- df_all_ST_filtered_SNPs %>% filter(`Sample 1` %in% tree$tip.label & `Sample 2` %in% tree$tip.label)
+# 
+# write_delim(df_all_ST_filtered_SNPs, file = "delims/x_source_SNP_dists_less_500_n5631.txt", delim = "\t")
+# 
+# write_delim(dists_w_metadata_x_source, file = "delims/x_source_SNP_dists_n5631.txt", delim = "\t")
+# 
+# df_all_ST <- df_all_ST %>% as.data.frame() %>% filter(`Sample 1` %in% tree$tip.label & `Sample 2` %in% tree$tip.label)
+# 
+# write_delim(df_all_ST, file = "delims/SNP_dists_w_metadata_n5631.txt", delim = "\t")
+
+
+
+
+```
+
+```{r}
+library(harrietr)
+
+cgMLST_clusters <- read_delim(file = "analysis/TEA/cgmlst_coreugate/clusters.txt")
+
+allelic_distances <- read_delim(file = "analysis/TEA/cgmlst_coreugate/pad.txt", show_col_types = FALSE)
+
+allelic_distances <- allelic_distances %>% rename(name = '5631')
+
+test <- pivot_longer(allelic_distances, cols = 2:5632, names_repair = 'minimal')
+
+colnames(test) <- c('Sample 1', 'Sample 2', 'value')
+
+distsnew <- inner_join(df_all_ST, test)
+
+dists_w_metadata_x_source <- distsnew %>% as.data.frame() %>% filter(Revised_Source_Niche.x != Revised_Source_Niche.y)
+
+df_all_ST_filtered_SNPs <- dists_w_metadata_x_source %>% as.data.frame() #%>% filter(SNPs < 250)
+
+df_all_ST_filtered_SNPs <- df_all_ST_filtered_SNPs %>%
+        mutate(fimtyper..Fimtype.x = str_replace(fimtyper..Fimtype.x, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.y = str_replace(fimtyper..Fimtype.y, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.x = replace_na(fimtyper..Fimtype.x, "None")) %>%
+        mutate(fimtyper..Fimtype.y = replace_na(fimtyper..Fimtype.y, "None"))
+
+source_combos_names <- df_all_ST_filtered_SNPs %>% pull(source_combo) %>% unique() %>% sort()
+
+source_combo_cols <- c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', 'black', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000')[1:length(source_combos_names)]
+
+names(source_combo_cols) <- source_combos_names
+
+df_all_ST_filtered_SNPs$sum_ColVs <- as.character(as.numeric(df_all_ST_filtered_SNPs$ColV.x) + as.numeric(df_all_ST_filtered_SNPs$ColV.y))
+
+all_st_allelic_dist_plot <- df_all_ST_filtered_SNPs %>%
+        ggplot(aes(x = ST.x, y = value)) +
+        geom_jitter(aes(color = source_combo, shape = sum_ColVs), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise allelic distance",
+                           limits = c(0, 250),
+                           breaks = c(seq(from = 0,
+                                          to = 250,
+                                          by = 10))) +
+        ggtitle("Cross source allelic distances") +
+        scale_color_manual(values = source_combo_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme_minimal() +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+
+all_st_SNP_dist_plot <- df_all_ST_filtered_SNPs %>%
+        ggplot(aes(x = ST.x, y = SNPs)) +
+        geom_jitter(aes(color = source_combo, shape = sum_ColVs), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise SNP distance",
+                           limits = c(0, 250),
+                           breaks = c(seq(from = 0,
+                                          to = 250,
+                                          by = 10))) +
+        ggtitle("Cross source SNP distances") +
+        scale_color_manual(values = source_combo_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme_minimal() +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+```
+
+```{r eval=FALSE, include=FALSE}
+source_type_names <- metadata %>% pull(Revised_Source_Type) %>% unique() %>% sort()
+
+source_type_cols <- c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', 'black', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000')[1:length(source_combos_names)]
+
+names(source_type_cols) <- source_type_names
+
+distsnew$sum_ColVs <- as.character(as.numeric(distsnew$ColV.x) + as.numeric(distsnew$ColV.y))
+
+same_source_type_dists <- distsnew %>% filter(Revised_Source_Type.x == Revised_Source_Type.y)
+
+source_type_allelic_dist_plot <- same_source_type_dists %>%
+        ggplot(aes(x = Revised_Source_Type.x, y = value)) +
+        geom_jitter(aes(color = Revised_Source_Type.x, shape = sum_ColVs), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise allelic distance",
+                           limits = c(0, 1250),
+                           breaks = c(seq(from = 0,
+                                          to = 1250,
+                                          by = 100))) +
+        ggtitle("Cross source allelic distances") +
+        scale_color_manual(values = source_type_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme(axis.text.x=element_text(angle = -90, vjust = 0.5)) +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+
+source_type_SNP_dist_plot <- same_source_type_dists %>%
+        ggplot(aes(x = Revised_Source_Type.x, y = SNPs)) +
+        geom_jitter(aes(color = Revised_Source_Type.x, shape = sum_ColVs), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise SNP distance",
+                           limits = c(0, 12000),
+                           breaks = c(seq(from = 0,
+                                          to = 12000,
+                                          by = 500))) +
+        ggtitle("Cross source SNP distances") +
+        scale_color_manual(values = source_type_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme(axis.text.x=element_text(angle = -90, vjust = 0.5)) +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+```
+
+
+```{r}
+library(ggpubr)
+library(paletteer)
+
+dists_w_metadata_all_source <- distsnew %>% as.data.frame() #%>% filter(Revised_Source_Niche.x != Revised_Source_Niche.y)
+
+df_all_ST_filtered_SNPs_all <- dists_w_metadata_all_source %>% as.data.frame() #%>% filter(SNPs < 250)
+
+df_all_ST_filtered_SNPs_all <- df_all_ST_filtered_SNPs_all %>%
+        mutate(fimtyper..Fimtype.x = str_replace(fimtyper..Fimtype.x, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.y = str_replace(fimtyper..Fimtype.y, pattern = "\\*", "-like")) %>%
+        mutate(fimtyper..Fimtype.x = replace_na(fimtyper..Fimtype.x, "None")) %>%
+        mutate(fimtyper..Fimtype.y = replace_na(fimtyper..Fimtype.y, "None"))
+
+ST_cols <- paletteer_d("ggthemes::Tableau_10")
+
+names(ST_cols) <- unique(df_all_ST_filtered_SNPs_all$ST.x)
+
+df_all_ST_filtered_SNPs_all %>% write_delim("delims/df_all_ST_filtered_SNPs_all.txt", delim = "\t")
+
+df_all_ST_filtered_SNPs_all %>% filter(SNPs < 12000) %>%
+        mutate(same_fim = if_else(fimtyper..Fimtype.x == fimtyper..Fimtype.y, T, F)) %>% 
+        ggplot(aes(x = SNPs, y = value)) + #, color=intra_inter
+        geom_point(aes(color = same_fim)) +
+        facet_wrap(~ST.x) +
+        labs(x = "Pairwise SNP Distance", y = "Pairwise Allelic Distance") +
+        geom_smooth(
+                method = lm,
+                color = "red",
+                fill = "#69b3a2",
+                se = TRUE
+        ) +
+        stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~")), color = "red", geom = "label")# +
+        #scale_color_manual(values = ST_cols)
+
+
+pal <- colorRampPalette(c("red", "yellow", "blue"))
+dot_cols <- pal(41)
+
+df_all_ST_filtered_SNPs_all %>% filter(ST.x %in% c('ST131', 'ST1193', 'ST95', 'ST57', 'ST69', 'ST117', 'ST963', 'ST457', 'ST80', 'ST648')) %>% 
+        filter(Revised_Source_Niche.x != Revised_Source_Niche.y) %>% 
+        filter(value < 40) %>%
+        ggplot() +
+        geom_boxplot(aes(SNPs, ST.x)) +
+        geom_jitter(aes(SNPs, ST.x, color = as.factor(value)), size = 0.1) +
+        scale_color_manual(values = dot_cols, breaks = as.factor(0:40), name = "Allelic Distance") +
+        facet_wrap(~source_combo, nrow = 7, ncol = 2) +
+        theme(axis.text.y = element_text(size = 6)) +
+        ylab("Sequence Type") +
+        geom_vline(xintercept = 100, color = "red", linetype = "dashed") +
+        scale_x_continuous(breaks = seq(0, 1500, by = 100)) +
+        guides(colour = guide_legend(override.aes = list(size=5))) +
+        theme(strip.text.x = element_text(size = 10))
+
+
+df_all_ST_filtered_SNPs_all %>% filter(value <= 40 & SNPs < 50) %>% filter(Revised_Source_Niche.x != Revised_Source_Niche.y) %>% group_by(ST.x, source_combo) %>% tally()
+
+library(pheatmap)
+
+df_all_ST_filtered_SNPs_all %>% filter(value <= 40 & SNPs < 100) %>% filter(Revised_Source_Niche.x != Revised_Source_Niche.y) %>% group_by(ST.x, source_combo) %>% tally(sort = T) %>% mutate(source_combo_1 = str_replace(source_combo, " vs .*", ""), source_combo_2 = str_replace(source_combo, ".* vs ", "")) %>% select(-source_combo) %>% pivot_wider(id_cols = ST.x, names_from = c(source_combo_1, source_combo_2), values_from = n) %>% column_to_rownames("ST.x") %>% mutate(across(everything(), ~ replace_na(., 0))) %>% pheatmap(display_numbers = T)
+
+```
+
+```{r}
+
+
+
+#Make our wide format data longer instead
+long_allelic_distances <- allelic_distances %>% column_to_rownames('name') %>% as.matrix() %>% as.data.frame.table(responseName = "allelic_distance") %>% rename('name1' = 'Var1', 'name2' = 'Var2')
+
+#Create a new data frame to bind in the source for sample 1
+name1_source <- genometa %>% select(name, Revised_Source_Niche) %>% rename('name1' = name, 'Revised_Source_Niche1' = Revised_Source_Niche)
+
+#Create a new data frame to bind in the source for sample 2
+name2_source <- genometa %>% select(name, Revised_Source_Niche) %>% rename('name2' = name, 'Revised_Source_Niche2' = Revised_Source_Niche)
+
+#Bind in our source for sample 1
+long_allelic_distances <- left_join(long_allelic_distances, name1_source)
+
+#Bind in our source for sample 2
+long_allelic_distances <- left_join(long_allelic_distances, name2_source)
+
+#Convert source to character type from factor
+long_allelic_distances <- long_allelic_distances %>% mutate(Revised_Source_Niche1 = as.character(Revised_Source_Niche1)) %>% mutate(Revised_Source_Niche2 = as.character(Revised_Source_Niche2))
+
+#Sort the source columns in a row-wise fashion and make a new column concatenating them
+long_allelic_distances <- long_allelic_distances %>% mutate(col1 = pmin(Revised_Source_Niche1, Revised_Source_Niche2), col2 = pmax(Revised_Source_Niche1, Revised_Source_Niche2), source_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2)
+
+#Remove things which are from the same source
+long_allelic_distances <- long_allelic_distances %>% filter(Revised_Source_Niche1 != Revised_Source_Niche2)
+
+#Bind in plasmid clusters
+long_allelic_distances <- F_plasmid_clusters %>% rename('name1' = name, 'primary_cluster_id1' = primary_cluster_id) %>% inner_join(long_allelic_distances)
+long_allelic_distances <- F_plasmid_clusters %>% rename('name2' = name, 'primary_cluster_id2' = primary_cluster_id) %>% inner_join(long_allelic_distances)
+
+#Collapse cluster_ids into whether shared or not
+long_allelic_distances <- long_allelic_distances %>%
+        mutate(F_plasmid_shared = if_else(primary_cluster_id1 != "No F plasmid" & primary_cluster_id1 == primary_cluster_id2, "Shared F plasmid", "No shared F plasmid"))
+
+long_allelic_distances %>%
+        filter(F_plasmid_shared == "Shared F plasmid") %>%
+        filter(Revised_Source_Niche1 != Revised_Source_Niche2) %>%
+        ggplot(aes(x = primary_cluster_id1, y = allelic_distance)) +
+        geom_jitter(aes(color = source_combo), size = 1) +
+        geom_boxplot(alpha = 0) +
+        scale_y_continuous(name = "Pairwise allelic distance",
+                           limits = c(0, 2500),
+                           breaks = c(seq(from = 0,
+                                          to = 2500,
+                                          by = 100))) +
+        ggtitle("Cross source allelic distances") +
+        scale_color_manual(values = source_combo_cols) +
+        #scale_x_discrete(name = "Sequence Type", limits=x_order_ww) +
+        geom_hline(yintercept = 100, color = "red", linetype = "dashed") +
+        theme(axis.text.x = element_text(angle = 90)) +
+        guides(colour = guide_legend(override.aes = list(size=6))) + 
+        coord_flip()
+        
+```
+
+```{r start_filtering}
+#Remove pairs which are over 40 cgMLST alleles apart
+long_allelic_distances <- long_allelic_distances %>% filter(allelic_distance <= 40) 
+
+#Create a column standardising name orders so we dont count sample1 vs sample37 and sample37 vs sample1 twice
+long_allelic_distances <- long_allelic_distances %>% mutate(col1 = pmin(name1, name2), col2 = pmax(name1, name2), name_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2)
+
+#Remove duplicated name_combo values
+long_allelic_distances <- long_allelic_distances[!duplicated(long_allelic_distances[,'name_combo']),]
+
+#Now we need to make a list of all the possible pairs to know which we don't have
+
+#Read in our tree
+tree <- ggtree::read.tree("analysis/TEA/cgmlst_coreugate/pad.nwk")
+
+#Remove quotes from sample names
+tree$tip.label <- gsub("'", "", tree$tip.label)
+
+#Create a list of the unique sources in the dataset
+all_res_source_niches <- genometa %>% filter(name %in% tree$tip.label) %>% mutate(Revised_Source_Niche = as.character(Revised_Source_Niche)) %>% pull(Revised_Source_Niche) %>% unique()
+
+#Create a list of the combinations of these sources
+possible_source_combos <- crossing(all_res_source_niches, all_res_source_niches) %>% filter(all_res_source_niches...1 != all_res_source_niches...2) %>% rename('Revised_Source_Niche1' = all_res_source_niches...1, 'Revised_Source_Niche2' = all_res_source_niches...2)
+
+#Again convert factor to character type for source
+possible_source_combos <- possible_source_combos %>% mutate(Revised_Source_Niche1 = as.character(Revised_Source_Niche1)) %>% mutate(Revised_Source_Niche2 = as.character(Revised_Source_Niche2))
+
+#Create a new column that sorts the columns and makes a new one such that, for example, "Wild Animal vs Human" and "Human vs Wild Animal" are standardised as "Wild Animal vs Human"
+possible_source_combos <- possible_source_combos %>% mutate(col1 = pmin(Revised_Source_Niche1, Revised_Source_Niche2), col2 = pmax(Revised_Source_Niche1, Revised_Source_Niche2), source_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2) %>% pull(source_combo) %>% unique()
+
+count_by_source <- genometa %>% filter(name %in% tree$tip.label) %>% mutate(Revised_Source_Niche = as.character(Revised_Source_Niche)) %>%  group_by(Revised_Source_Niche) %>% summarise(counts = n())
+
+if(exists('loop_out')){rm('loop_out')}
+
+for(i in 1:length(possible_source_combos)){
+        source_combo_i <- possible_source_combos[i]
+        
+        count_of_source_combo <- long_allelic_distances %>% filter(source_combo == possible_source_combos[i]) %>% nrow()
+        
+        loop_df <- cbind(source_combo_i, count_of_source_combo) %>% as.data.frame() %>% print()
+        
+        if(!exists('loop_out')){
+                loop_out <- loop_df
+        } else{loop_out <- bind_rows(loop_out, loop_df)}
+        
+        
+}
+
+loop_out <- loop_out %>% mutate(Revised_Source_Niche1 = str_replace(source_combo_i, '.* vs ', '')) %>% mutate(Revised_Source_Niche2 = str_replace(source_combo_i, ' vs .*', ''))
+
+#Create a new data frame to bind in counts for source 1
+source1_counts <- count_by_source %>% rename('Revised_Source_Niche1' = Revised_Source_Niche, 'counts1' = counts)
+
+#Create a new data frame to bind in counts for source 2
+source2_counts <- count_by_source %>% rename('Revised_Source_Niche2' = Revised_Source_Niche, 'counts2' = counts)
+
+#Bind in our source for sample 1
+loop_out <- left_join(loop_out, source1_counts)
+
+#Bind in our source for sample 2
+loop_out <- left_join(loop_out, source2_counts)
+
+loop_out <- loop_out %>% mutate(total_possible_pairs = counts1 * counts2)
+
+loop_out <- loop_out %>% mutate(count_of_source_combo = as.numeric(count_of_source_combo)) %>% mutate(counts_per_pairs = count_of_source_combo / total_possible_pairs)
+
+loop_out <- loop_out %>% mutate(number_of_pairs = 1 / counts_per_pairs)
+
+#Need to determine how many samples per collection combine to make this count of pairs
+loop_out <- loop_out %>% mutate(sqr_rt_number_of_pairs = sqrt(number_of_pairs)) %>% unique()
+
+#Rename columns
+loop_out <- loop_out %>% rename("Source Combination" = source_combo_i, "Count of Matching Cross Source Pairs (≤ 40 cgMLST alleles)" = count_of_source_combo, "Count Source1" = counts1,   "Count Source2" = counts2, "Total Cross Source Pairs" = total_possible_pairs, "Fraction Matching (Matching Pairs divided by Pairs)" = counts_per_pairs, "Number of pairs per matching pair" = number_of_pairs, "Number of strains per source" = sqr_rt_number_of_pairs)
+
+#write_delim(loop_out, "delims/Combination_Sources_Overlaps_40_or_less_cgMLST.txt", delim = "\t")
+```
+
+```{r boostrap, eval=FALSE, include=FALSE}
+
+
+
+
+#Make our wide format data longer instead
+long_allelic_distances <- allelic_distances %>% column_to_rownames('name') %>% as.matrix() %>% as.data.frame.table(responseName = "allelic_distance") %>% rename('name1' = 'Var1', 'name2' = 'Var2')
+
+#Create a new data frame to bind in the source for sample 1
+name1_source <- genometa %>% select(name, Revised_Source_Niche) %>% rename('name1' = name, 'Revised_Source_Niche1' = Revised_Source_Niche)
+
+#Create a new data frame to bind in the source for sample 2
+name2_source <- genometa %>% select(name, Revised_Source_Niche) %>% rename('name2' = name, 'Revised_Source_Niche2' = Revised_Source_Niche)
+
+#Bind in our source for sample 1
+long_allelic_distances <- left_join(long_allelic_distances, name1_source)
+
+#Bind in our source for sample 2
+long_allelic_distances <- left_join(long_allelic_distances, name2_source)
+
+#Convert source to character type from factor
+long_allelic_distances <- long_allelic_distances %>% mutate(Revised_Source_Niche1 = as.character(Revised_Source_Niche1)) %>% mutate(Revised_Source_Niche2 = as.character(Revised_Source_Niche2))
+
+#Sort the source columns in a row-wise fashion and make a new column concatenating them
+long_allelic_distances <- long_allelic_distances %>% mutate(col1 = pmin(Revised_Source_Niche1, Revised_Source_Niche2), col2 = pmax(Revised_Source_Niche1, Revised_Source_Niche2), source_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2)
+
+#Remove things which are from the same source
+long_allelic_distances <- long_allelic_distances %>% filter(Revised_Source_Niche1 != Revised_Source_Niche2)
+
+#Create a column standardising name orders so we dont count sample1 vs sample37 and sample37 vs sample1 twice
+long_allelic_distances <- long_allelic_distances %>% mutate(col1 = pmin(name1, name2), col2 = pmax(name1, name2), name_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2)
+
+#Remove duplicated name_combo values
+long_allelic_distances <- long_allelic_distances[!duplicated(long_allelic_distances[,'name_combo']),]
+
+#Now we need to make a list of all the possible pairs to know which we don't have
+
+#Read in our tree
+tree <- ggtree::read.tree("analysis/TEA/cgmlst_coreugate/pad.nwk")
+
+#Remove quotes from sample names
+tree$tip.label <- gsub("'", "", tree$tip.label)
+
+#Create a list of the unique sources in the dataset
+all_res_source_niches <- genometa %>% filter(name %in% tree$tip.label) %>% mutate(Revised_Source_Niche = as.character(Revised_Source_Niche)) %>% pull(Revised_Source_Niche) %>% unique()
+
+#Create a list of the combinations of these sources
+possible_source_combos <- crossing(all_res_source_niches, all_res_source_niches) %>% filter(all_res_source_niches...1 != all_res_source_niches...2) %>% rename('Revised_Source_Niche1' = all_res_source_niches...1, 'Revised_Source_Niche2' = all_res_source_niches...2)
+
+#Again convert factor to character type for source
+possible_source_combos <- possible_source_combos %>% mutate(Revised_Source_Niche1 = as.character(Revised_Source_Niche1)) %>% mutate(Revised_Source_Niche2 = as.character(Revised_Source_Niche2))
+
+#Create a new column that sorts the columns and makes a new one such that, for example, "Wild Animal vs Human" and "Human vs Wild Animal" are standardised as "Wild Animal vs Human"
+possible_source_combos <- possible_source_combos %>% mutate(col1 = pmin(Revised_Source_Niche1, Revised_Source_Niche2), col2 = pmax(Revised_Source_Niche1, Revised_Source_Niche2), source_combo = paste(col1, "vs",col2)) %>% select(-col1, -col2) %>% pull(source_combo) %>% unique()
+
+count_by_source <- genometa %>% filter(name %in% tree$tip.label) 
+
+count_by_source <- count_by_source %>% mutate(Revised_Source_Niche = as.character(Revised_Source_Niche)) %>%  group_by(Revised_Source_Niche) %>% summarise(counts = n())
+
+library(boot)
+
+
+
+bootfun <- function(df){        
+        if(exists('loop_out')){rm('loop_out', envir = globalenv())}
+        
+        subsampled_long_allelic_distances <- slice_sample(group_by(df, source_combo), prop = 0.5, replace = TRUE)
+        
+        #Remove pairs which are over 40 cgMLST alleles apart
+        subsampled_long_allelic_distances <- subsampled_long_allelic_distances %>% filter(allelic_distance <= 40) 
+        
+        for(i in 1:length(possible_source_combos)){
+                source_combo_i <- possible_source_combos[i]
+                
+                count_of_source_combo <- subsampled_long_allelic_distances %>% filter(source_combo == possible_source_combos[i]) %>% nrow()
+                
+                loop_df <- cbind(source_combo_i, count_of_source_combo) %>% as.data.frame()
+                
+                if(!exists('loop_out')){
+                        loop_out <- loop_df
+                } else{loop_out <- bind_rows(loop_out, loop_df)}
+                
+                print(loop_df)
+                
+        }
+ 
+}
+ 
+set.seed(888)
+       
+lapply(1:20, function(i) bootfun(long_allelic_distances))
+
+        loop_out <- loop_out %>% mutate(Revised_Source_Niche1 = str_replace(source_combo_i, '.* vs ', '')) %>% mutate(Revised_Source_Niche2 = str_replace(source_combo_i, ' vs .*', ''))
+        
+        #Create a new data frame to bind in counts for source 1
+        source1_counts <- count_by_source %>% rename('Revised_Source_Niche1' = Revised_Source_Niche, 'counts1' = counts)
+        
+        #Create a new data frame to bind in counts for source 2
+        source2_counts <- count_by_source %>% rename('Revised_Source_Niche2' = Revised_Source_Niche, 'counts2' = counts)
+        
+        #Bind in our source for sample 1
+        loop_out <- left_join(loop_out, source1_counts)
+        
+        #Bind in our source for sample 2
+        loop_out <- left_join(loop_out, source2_counts)
+        
+        loop_out <- loop_out %>% mutate(total_possible_pairs = counts1 * counts2)
+        
+        loop_out <- loop_out %>% mutate(count_of_source_combo = as.numeric(count_of_source_combo)) %>% mutate(counts_per_pairs = count_of_source_combo / total_possible_pairs)
+        
+        loop_out <- loop_out %>% mutate(number_of_pairs = 1 / counts_per_pairs)
+        
+        #Need to determine how many samples per collection combine to make this count of pairs
+        loop_out <- loop_out %>% mutate(sqr_rt_number_of_pairs = sqrt(number_of_pairs)) %>% unique()
+        
+        #Rename columns
+        loop_out <- loop_out %>% rename("Source Combination" = source_combo_i, "Count of Matching Cross Source Pairs (≤ 40 cgMLST alleles)" = count_of_source_combo, "Count Source1" = counts1,   "Count Source2" = counts2, "Total Cross Source Pairs" = total_possible_pairs, "Fraction Matching (Matching Pairs divided by Pairs)" = counts_per_pairs, "Number of pairs per matching pair" = number_of_pairs, "Number of strains per source" = sqr_rt_number_of_pairs)
+        
+
+
+
+
+```
+
+```{r}
+library(ggalluvial)
+library(viridis)
+
+#group data 
+d1 <- genometa %>%
+        filter(name %in% tree$tip.label) %>%
+        mutate(State = replace_na(State, 'Unknown')) %>%
+        mutate(Collection_Year_Other = if_else(Collection_Year < 2001, "Other", as.character(Collection_Year))) %>%
+        mutate(Collection_Year_Other = replace_na(Collection_Year_Other, 'Unknown')) %>%
+        mutate(Year_bin = cut(Collection_Year, breaks = c(1986, 2005, 2010, 2015, 2022))) %>%
+        #mutate(Year_bin = cut(Collection_Year, breaks = seq(from=1986, to = 2022, by = 9))) %>% 
+        mutate(Year_bin = str_replace(Year_bin, ",", "-")) %>% 
+        mutate(Year_bin = str_replace(Year_bin, "\\(", "")) %>% 
+        mutate(Year_bin = str_replace(Year_bin, "\\]", "")) %>% 
+        #mutate(Year_bin = replace_na(Year_bin, 'Unknown')) %>% 
+        filter(!is.na(Year_bin)) %>% 
+        mutate(Year_bin = factor(Year_bin, levels = c("1986-2005",
+                                                      "2005-2010",
+                                                      "2010-2015",
+                                                      "2015-2022"#,
+                                                      #"Unknown"
+                                                      ))) %>% 
+        group_by(Revised_Source_Niche, State, Year_bin) %>% 
+        dplyr::summarise(count = n())
+
+
+#renaming 
+d1 <- rename(d1, Source = Revised_Source_Niche)
+
+#to save as pdf 
+pdf(file = "figures/2023/Alluvial.pdf", width = 25, height = 15, useDingbats = FALSE)
+
+#plot 
+ggplot(data = d1,
+       aes(axis1 = Source, axis2 = Year_bin, axis3 = State, y = count)) + #change the order to change the graph order 
+        scale_x_discrete(limits = c("Source", "ST", "Site"), expand = c(.05, .05)) +
+        geom_alluvium(aes(fill = Source), width = 1/12, show.legend = FALSE ) + #change width to alter thickness of axes 
+        scale_fill_manual(values = Col) + #what ever colours you like 
+        geom_stratum(width = 1/12) + #if you change width above remember to change it here 
+        geom_text(stat = "stratum", size = 4, aes(label = after_stat(stratum))) +
+        #geom_label(stat = "stratum", size = 4, aes(label = after_stat(stratum))) + #i've no idea what this bit does but its important  
+        theme_minimal() + coord_flip()
+
+dev.off()
+```
+
+```{r}
+library(ggalluvial)
+library(viridis)
+
+#group data 
+d1 <- genometa %>%
+        filter(name %in% tree$tip.label) %>%
+        mutate(State = replace_na(State, 'Unknown')) %>%
+        group_by(Revised_Source_Niche, Intestinal_or_Extraintestinal, Revised_Source_Type) %>% 
+        dplyr::summarise(count = n())
+
+
+#renaming 
+d1 <- rename(d1, Source = Revised_Source_Niche)
+
+#to save as pdf 
+pdf(file = "figures/2023/Alluvial_Sources.pdf", width = 25, height = 15, useDingbats = FALSE)
+
+#plot 
+ggplot(data = d1,
+       aes(axis1 = Source, axis2 = Revised_Source_Type, axis3 = Intestinal_or_Extraintestinal, y = count)) + #change the order to change the graph order 
+        scale_x_discrete(limits = c("Source", "ST", "Site"), expand = c(.05, .05)) +
+        geom_alluvium(aes(fill = Source), width = 1/12, show.legend = FALSE ) + #change width to alter thickness of axes 
+        scale_fill_manual(values = Col) + #what ever colours you like 
+        geom_stratum(width = 1/12) + #if you change width above remember to change it here 
+        geom_text(stat = "stratum", size = 4, aes(label = after_stat(stratum))) +
+        #geom_label(stat = "stratum", size = 4, aes(label = after_stat(stratum))) + #i've no idea what this bit does but its important  
+        theme_minimal() + coord_flip()
+
+dev.off()
+
+# Create an adjacency matrix: 
+chord_data <- genometa %>%
+        filter(name %in% tree$tip.label) %>%
+        group_by(Revised_Source_Type, Intestinal_or_Extraintestinal, ) %>%
+        summarise(counts = n()) %>%
+        filter(Revised_Source_Type %nin% c("Equine", "Food", "Environmental", "Soil", "Feline", "Marsupial", "Caprine", "Reptile")) %>%
+        pivot_wider(id_cols = Intestinal_or_Extraintestinal, names_from = Revised_Source_Type, values_from = counts, values_fill = 0) %>%
+        column_to_rownames("Intestinal_or_Extraintestinal") %>% as.matrix()
+        
+        
+# Load the circlize library
+library(circlize)
+ 
+# Make the circular plot
+chordDiagram(chord_data, transparency = 0.5)
+
+# Clockwise labels may require increasing the canvas margins
+circos.par(canvas.xlim=c(-1.5,1.5),canvas.ylim=c(-1.5,1.5))
+#df.test=df[,c(1,2)]
+
+circos.clear()
+
+par(cex = 0.5)
+
+chordDiagram(chord_data, annotationTrack = "grid", preAllocateTracks = 1)
+circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
+  xlim = get.cell.meta.data("xlim")
+  ylim = get.cell.meta.data("ylim")
+  sector.name = get.cell.meta.data("sector.index")
+  circos.text(mean(xlim), ylim[1] + cm_h(1.5), sector.name, facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5))
+  circos.axis(h = "top", labels.cex = 1, major.tick.percentage = 0.2, sector.index = sector.name, track.index = 2)
+}, bg.border = NA)
+```
