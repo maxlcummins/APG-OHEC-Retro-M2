@@ -1,0 +1,1240 @@
+---
+title: "Plasmid Manuscript"
+author: "Max Cummins"
+date: "2024-05-16"
+output:
+  html_document: 
+    code_folding: hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+#Read in our packages
+library(tidyverse)
+library(vroom)
+library(ggplot2)
+library(xml2)
+library(ggrepel)
+library(caret)
+library(here)
+library(scales)
+library(plotly)
+library(ComplexHeatmap)
+library(grid)
+library(ComplexUpset)
+library(hues)
+library(ggpubr)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	root.dir = here::here()
+)
+#Define our not in function
+`%nin%` <- Negate(`%in%`)
+```
+
+## Define our color scheme
+```{r}
+#Overwrite with different colours
+source_cols <- c("Companion Animal" = "#59398d",
+         "Environmental" = "#709b46",
+         "Food" = "#c09f3d",
+         "Human" = "#48c595",
+         "Livestock" =  "#c26bbc",
+         "Wild Animal" = "#b9553d")
+
+#Create fake colour for header
+phylogroup_header <- c(NA)
+names(phylogroup_header) <- 'Phylogroups'
+
+#Define our colours for our phylogroups
+clermont_cols <- c('#ffe119', '#4363d8', '#f58231', '#dcbeff', '#800000', '#000075', '#9A6324', 'red', '#3cb44b',  'white', '#a9a9a9', 'black')
+
+#Assign our color names for phylogroups
+names(clermont_cols) <- c("A", "B1",  "B2", "C", "D", "E", "F", "G", "E or cladeI", "cladeI", "cladeIII", "cladeIV")
+```
+
+
+## Read in our tree and genomic and metadata dataset
+
+```{r Merge_analysis_outputs, include=FALSE}
+
+genometa <- vroom("delims/genometa_n5471.txt", show_col_types = FALSE)
+
+#Read in our tree
+tree <- ggtree::read.tree("analysis/RapidNJ_5471.nwk")
+
+#Remove quotes from sample names
+tree$tip.label <- gsub("'", '', tree$tip.label)
+tree$tip.label <- gsub("\\.fa", "", tree$tip.label)
+
+#Create a list of samples in our cohort
+sample_names <- tree$tip.label %>% as.data.frame() %>% rename('name' = '.')
+
+```
+
+## Results
+
+```{r}
+## General stats
+
+# Compute total strains sequenced
+total_seq <- genometa %>% filter(grepl("AUSMDU|AusGEM", name)) %>% nrow() %>% format(big.mark = ",")
+
+# Compute total strains collated
+total_collate <- genometa %>% filter(!grepl("AUSMDU|AusGEM", name)) %>% nrow()  %>% format(big.mark = ",")
+
+# Compute total strains under analysis
+total_analysis <- genometa %>% nrow() %>% format(big.mark = ",")
+
+## Phylogroups
+
+#Compute genomes per Phylogroup
+Phylogroup_table <- genometa %>% group_by(Consensus_phylogroup, Revised_Source_Niche) %>% tally() %>% pivot_wider(names_from = "Revised_Source_Niche", values_from = "n", values_fill = 0) %>% rowwise() %>% mutate(Total = sum(c_across(where(is.numeric)))) %>% mutate("Percentage" = percent(Total/sum(.$Total), accuracy = 0.1))
+
+#Extract the count/perc of B2s
+B2_perc <- Phylogroup_table %>% filter(Consensus_phylogroup == "B2") %>% pull(Percentage) %>% format(big.mark = ",")
+B2_count <- Phylogroup_table %>% filter(Consensus_phylogroup == "B2") %>% pull(Total) %>% format(big.mark = ",")
+
+#Extract count of others
+other_phylogroup_count <- Phylogroup_table %>% filter(Consensus_phylogroup %in% c("cladeI", "cladeIII", "cladeIV", "Unknown", "E or clade I")) %>% pull(Total) %>% sum() %>% format(big.mark = ",")
+```
+
+
+# Analysis of ST frequencies
+
+```{r}
+
+## STs
+#Generate table of ST counts
+ST_table <- genometa %>% group_by(ST_new, Consensus_phylogroup) %>% tally(sort = T) %>% mutate("Percentage" = percent(n/sum(.$n), accuracy = 0.1))
+
+#Compute ST count
+ST_count <- ST_table %>% nrow()
+
+#Compute novel ST count
+novel_ST_count <- ST_table %>% filter(grepl("\\^\\^", ST_new)) %>% nrow()
+
+#Compute known ST count
+known_ST_count <- ST_table %>% filter(!grepl("\\^\\^", ST_new)) %>% nrow()
+
+#Generate strings for frequencies, counts and phylogroups for top five STs
+top5 <- ST_table %>% head(5) %>% mutate(text_col = paste0(ST_new, " (phylogroup ", Consensus_phylogroup, "; ", Percentage, " (", n,"/",sum(.$n), ")"))
+
+
+#Extract text string
+freq_string <-  top5 %>% pull(text_col) %>% paste0(collapse =",")
+
+#Compute total and perc
+top5_total <- top5 %>% pull(n) %>% sum()
+top5_perc <- percent(top5_total/nrow(genometa), accuracy = 0.1)
+top5_total <- top5_total %>% format(big.mark = ",")
+
+#Compute counts of non-novel and non-top5
+other_STs <- ST_table %>% filter(ST_new %nin% top5$ST_new) %>% filter(!grepl("\\^\\^", ST_new))
+
+#Compute total and perc for others
+other_STs_total <- other_STs %>% filter(n > 1) %>% pull(n) %>% sum()
+other_STs_perc <- percent(other_STs_total/nrow(genometa), accuracy = 0.1)
+other_STs_total <- other_STs_total %>% format(big.mark = ",")
+min_count_other <- other_STs %>% filter(n > 1) %>% pull(n) %>% min()
+max_count_other <- other_STs %>% filter(n > 1) %>% pull(n) %>% max()
+
+#Compute novel ST count
+singleton_total <- ST_table %>% filter(n == 1) %>% pull(n) %>% sum()
+singleton_perc <- percent(singleton_total/nrow(genometa), accuracy = 0.1)
+singleton_total <- singleton_total %>%  format(big.mark = ",")
+
+```
+
+
+## Figure 1
+
+```{r, fig.width=8.7, fig.height=11.69, fig.cap='Figure 1 - Collection composition. This sunburst chart visualises the number and proportion of strains among a given source and Intestinal/Extraintestinal niche. Note: A total of 7 Companion Animal strains are unable to be categorised as either Intestinal or Extraintestinal due to missing metadata – data not shown above due to small sample size (n = XX)'}
+
+# Group by Source and Intestinal/Extraintestinal niche
+sunburst_df <- genometa %>% group_by(Revised_Source_Niche, Intestinal_or_Extraintestinal) %>% tally() %>% ungroup()
+
+# Rename columns for clarity
+sunburst_df <- sunburst_df %>% rename('parent' = Revised_Source_Niche, 'label' = Intestinal_or_Extraintestinal, 'values' = n)
+
+# Summarise the data to get total values for each parent
+sunburst_df <- sunburst_df %>% group_by(parent) %>% summarise(values = sum(values)) %>% rename('label' = parent) %>% mutate(parent = "Total") %>% mutate(label = paste0(label, " (", values, ")")) %>% bind_rows(sunburst_df)
+
+# Add a row for the total number of observations
+sunburst_df <- sunburst_df %>% add_row(label= 'Total', parent = '', values = nrow(genometa))
+
+# Put the label in the format "label (values)"
+sunburst_df <- sunburst_df %>% mutate(label = paste0(label, " (", values, ")")) %>% mutate(label = str_replace(label, "\\).*", "\\)"))
+
+# Group by parent and mutate labels
+sunburst_df <- sunburst_df %>% group_by(parent) %>% mutate(county = sum(values)) %>% mutate(parent = paste0(parent, " (", county, ")")) %>% mutate(parent = str_replace(parent, '^ \\(.*\\)$', '')) %>% mutate(parent = str_replace(parent, ' \\(', '\n(')) %>% mutate(label = str_replace(label, ' \\(', '\n('))
+
+# More label changing
+sunburst_df <- sunburst_df %>% mutate(Revised_Source_Niche = str_replace(parent, "\n.*", "")) %>% mutate(Revised_Source_Niche = ifelse(Revised_Source_Niche == "Total", "", Revised_Source_Niche))
+
+# Manually set the source names
+sunburst_df[1,5] <- "Companion Animal"
+sunburst_df[2,5] <- "Environmental"
+sunburst_df[3,5] <- "Food"
+sunburst_df[4,5] <- "Human"
+sunburst_df[5,5] <- "Livestock"
+sunburst_df[6,5] <- "Wild Animal"
+sunburst_df[nrow(sunburst_df),5] <- "Total"
+
+#Source Colours
+Source_cols <- c("Companion Animal" = "#59398d",
+         "Environmental" = "#709b46",
+         "Food" = "#c09f3d",
+         "Human" = "#48c595",
+         "Livestock" =  "#c26bbc",
+         "Wild Animal" = "#b9553d",
+         "Plasmid" =  "#000000")
+
+# Add a column for source colours
+sunburst_df <- sunburst_df %>% mutate(Source_col = Source_cols[Revised_Source_Niche])
+
+# Set the last row's source colour to white for aesthetics
+sunburst_df[nrow(sunburst_df),ncol(sunburst_df)] <- "white"
+
+# Set seed for reproducibility
+set.seed(1)
+
+# Select relevant columns for the sunburst plot
+sunburst_df <- sunburst_df %>% select(label, values, parent, Source_col)
+
+# Plot
+fig <- plot_ly(sunburst_df,
+               labels = ~label,
+               parents = ~parent,
+               values = ~values,
+  type = 'sunburst', branchvalues = 'total') %>%
+        layout(colorway = ~Source_col)
+
+# View Plot
+fig 
+```
+
+
+```{r}
+# Read in our mobtyper data
+mobtyper_df <- vroom("analysis/mobtyper_results_concatenated.txt", show_col_types = FALSE)
+
+# Read in our data on the mobtyper database
+if (!exists("clusters")) {
+    if (file.exists("delims/plasmid_cluster_data.txt.gz")) {
+        # Unzip the file
+        gunzip("delims/plasmid_cluster_data.txt.gz", remove = FALSE, overwrite = TRUE)
+        clusters <- vroom("delims/plasmid_cluster_data.txt")
+    } else {
+        source("scripts/plasmid_data_aggregate.R")
+        clusters <- vroom("delims/plasmid_cluster_data.txt")
+    }
+}
+
+# Filter in our mobtyper data and rename the sample ID column to name
+mobtyper_df <- mobtyper_df %>%
+    rename('name' = sample_id) %>%
+    mutate(name = str_replace(name, ":.*", "")) %>%
+    filter(name %in% tree$tip.label)
+
+detected_clusters <- clusters %>%
+    filter(primary_cluster_id %in% unique(mobtyper_df$primary_cluster_id))
+
+# Calculate entropy for each sequence type (ST)
+ST_entropy <- genometa %>%
+    group_by(ST_new) %>%
+    add_count(name = 'Count_of_ST') %>%
+    ungroup() %>%
+    select(name, ST_new, Count_of_ST) %>%
+    inner_join(mobtyper_df, by = "name") %>%
+    group_by(ST_new, primary_cluster_id) %>%
+    summarise(counts = n(), Count_of_ST) %>%
+    unique() %>%
+    group_by(ST_new, primary_cluster_id) %>%
+    mutate(ST_cluster_prob = counts / Count_of_ST) %>%
+    mutate(log_ST_cluster_prob = log(ST_cluster_prob)) %>%
+    mutate(prod_ST_cluster_prob_and_log = ST_cluster_prob * log_ST_cluster_prob) %>%
+    group_by(primary_cluster_id) %>%
+    mutate(entropy = abs(sum(prod_ST_cluster_prob_and_log))) %>%
+    mutate('ST_entropy' = entropy) %>%
+    select(primary_cluster_id, ST_entropy) %>%
+    unique()
+
+# Calculate entropy for each phylogroup
+Phylogroup_entropy <- genometa %>%
+    group_by(Consensus_phylogroup) %>%
+    add_count(name = 'Count_of_Phylogroup') %>%
+    ungroup() %>%
+    select(name, Consensus_phylogroup, Count_of_Phylogroup) %>%
+    inner_join(mobtyper_df, by = "name") %>%
+    group_by(Consensus_phylogroup, primary_cluster_id) %>%
+    summarise(counts = n(), Count_of_Phylogroup) %>%
+    unique() %>%
+    group_by(Consensus_phylogroup, primary_cluster_id) %>%
+    mutate(Phylogroup_cluster_prob = counts / Count_of_Phylogroup) %>%
+    mutate(log_Phylogroup_cluster_prob = log(Phylogroup_cluster_prob)) %>%
+    mutate(prod_Phylogroup_cluster_prob_and_log = Phylogroup_cluster_prob * log_Phylogroup_cluster_prob) %>%
+    group_by(primary_cluster_id) %>%
+    mutate(entropy = abs(sum(prod_Phylogroup_cluster_prob_and_log))) %>%
+    mutate('Phylogroup_entropy' = entropy) %>%
+    select(primary_cluster_id, Phylogroup_entropy) %>%
+    unique()
+
+# Calculate entropy for each source niche
+Source_entropy <- genometa %>%
+    group_by(Revised_Source_Niche) %>%
+    add_count(name = 'Count_of_Revised_Source_Niche') %>%
+    ungroup() %>%
+    select(name, Revised_Source_Niche, Count_of_Revised_Source_Niche) %>%
+    inner_join(mobtyper_df, by = "name") %>%
+    group_by(Revised_Source_Niche, primary_cluster_id) %>%
+    summarise(counts = n(), Count_of_Revised_Source_Niche) %>%
+    unique() %>%
+    group_by(Revised_Source_Niche, primary_cluster_id) %>%
+    mutate(Revised_Source_Niche_cluster_prob = counts / Count_of_Revised_Source_Niche) %>%
+    mutate(log_Revised_Source_Niche_cluster_prob = log(Revised_Source_Niche_cluster_prob)) %>%
+    mutate(prod_Revised_Source_Niche_cluster_prob_and_log = Revised_Source_Niche_cluster_prob * log_Revised_Source_Niche_cluster_prob) %>%
+    group_by(primary_cluster_id) %>%
+    mutate(entropy = abs(sum(prod_Revised_Source_Niche_cluster_prob_and_log))) %>%
+    mutate('Source_entropy' = entropy) %>%
+    select(primary_cluster_id, Source_entropy) %>%
+    unique()
+
+# Combine detected clusters with entropy measures
+detected_clusters_w_entropy <- detected_clusters %>%
+    left_join(Phylogroup_entropy, by = "primary_cluster_id", relationship = "many-to-many") %>%
+    left_join(ST_entropy, by = "primary_cluster_id", relationship = "many-to-many") %>%
+    left_join(Source_entropy, by = "primary_cluster_id", relationship = "many-to-many") %>%
+    select(sample_id, matches("entropy"), Plasmid_CIA_status, Plasmid_count_of_AMR_genes, Plasmid_VF_count, matches("^inc"), `IncF RST`, everything()) %>%
+    mutate(Plasmid_CIA_status = replace_na(Plasmid_CIA_status, 0)) %>%
+    mutate(Plasmid_count_of_AMR_genes = replace_na(Plasmid_count_of_AMR_genes, 0)) %>%
+    mutate(Plasmid_VF_count = replace_na(Plasmid_VF_count, 0))
+
+novel_and_plasmid_counts <- genometa %>%
+        #Select columns of interest
+        select(name, Revised_Source_Niche, Consensus_phylogroup) %>%
+        #group by source to enable count
+        group_by(Revised_Source_Niche) %>%
+        #add source count
+        add_count(name = "Source_Count") %>%
+        #remove grouping
+        ungroup() %>%
+        #Bind to our mobtyper data
+        full_join(mobtyper_df, by = "name") %>%
+        #Group by sample
+        group_by(name) %>%
+        #Count the number of plasmids in a sample
+        mutate(count_plasmids = n()) %>%
+        #Correct where a count of zero is misidentified as a count of 1 for samples with no mobtyper data
+        mutate(count_plasmids = if_else(is.na(md5) & count_plasmids == 1, 0, count_plasmids)) %>%
+        #Add a column to indicate whether a particular plasmid is novel or not
+        mutate(is_novel =  if_else(grepl("novel", primary_cluster_id), 1, 0)) %>%
+        #Correct where a gene is indicated as having a non novel plasmid but actually has no plasmids
+        mutate(is_novel = if_else(is.na(md5) & is_novel == 0, NA, is_novel)) %>%
+        #Remove grouping
+        ungroup()
+
+#Compute total count of plasmids
+total_plasmids <- novel_and_plasmid_counts %>% filter(!is.na(primary_cluster_id)) %>% nrow()
+
+#Compute total count of novel plasmids
+novel_plasmids <- novel_and_plasmid_counts %>% filter(is_novel == 1) %>% nrow()
+
+#Compute total count of clustered plasmids
+clustered_plasmids <- novel_and_plasmid_counts %>% filter(is_novel == 0) %>% nrow()
+
+#Compute total count of detected plasmid clusters
+plasmid_clusters <- novel_and_plasmid_counts %>% filter(is_novel == 0) %>% select(primary_cluster_id) %>% unique() %>% nrow()
+
+#Compute percent of plasmids which were clustered
+perc_clustered <- percent(clustered_plasmids/total_plasmids, accuracy = 0.01)
+
+#Compute percent of plasmids which were novel
+perc_novel <- percent(clustered_plasmids/total_plasmids, accuracy = 0.01)
+
+#Compute count of top 20 primary clusters
+count_top_20 <- novel_and_plasmid_counts %>% mutate(primary_cluster_id_top20 = fct_lump_n(f = primary_cluster_id, n = 20, other_level = "Other")) %>% group_by(primary_cluster_id_top20) %>% tally() %>% filter(primary_cluster_id_top20 != "Other") %>% pull(n) %>% sum()
+
+#Compute percentage of top 20 primary clusters
+perc_top_20 <- percent(count_top_20/total_plasmids, accuracy = 0.1)
+
+#Format count for top 20
+count_top_20 <- format(count_top_20, big.mark = ",")
+
+#Format count for total plasmids
+total_plasmids <- format(total_plasmids, big.mark = ",")
+
+#Generate table of Rep types detected
+rep_table <- novel_and_plasmid_counts %>% filter(`rep_type(s)` != "-") %>% separate_rows(`rep_type(s)`, sep = ",") %>% select(`rep_type(s)`) %>% unique() %>% filter(!is.na(`rep_type(s)`)) %>% group_by(grepl("Inc", `rep_type(s)`), grepl("^rep_", `rep_type(s)`), grepl("Col", `rep_type(s)`)) %>% tally() %>% rename("Inc-type" = `grepl("Inc", \`rep_type(s)\`)`, "Col-type" = `grepl("Col", \`rep_type(s)\`)`, "Other type" = `grepl("^rep_", \`rep_type(s)\`)`)
+
+count_Incs <- rep_table %>% filter(`Inc-type` == TRUE) %>% pull(n)
+count_other_reps <- rep_table %>% filter(`Other type` == TRUE) %>% pull(n)
+count_cols <- rep_table %>% filter(`Col-type` == TRUE) %>% pull(n)
+```
+
+# Table 1
+
+```{r}
+#Create the base of our table
+plasmid_df <- novel_and_plasmid_counts %>%
+  filter(!is.na(primary_cluster_id)) %>%
+  mutate(primary_cluster_id_top20 = fct_lump_n(f = primary_cluster_id, n = 20, other_level = "Other")) %>%
+  mutate(primary_cluster_id_top20 = if_else(str_detect(string = primary_cluster_id, pattern ="novel"), "Novel", primary_cluster_id_top20)) 
+
+base_table <- plasmid_df %>% group_by(primary_cluster_id_top20) %>% tally(sort = T)
+
+base_table <- base_table %>% mutate(move_order = if_else(primary_cluster_id_top20 == "Other", 1, 0)) %>% arrange(move_order) %>% select(-move_order) %>% filter(!is.na(primary_cluster_id_top20))
+
+# Calculate the total for each numeric column
+totals <- base_table %>%
+  summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%
+  mutate(primary_cluster_id_top20 = "Total")
+
+# Bind the totals row to the original data frame
+base_table <- bind_rows(base_table, totals)
+
+#Generate predominant replicons
+reps_per_top20_clust <- plasmid_df %>% separate_rows(`rep_type(s)`, sep = ",") %>% group_by(primary_cluster_id_top20, `rep_type(s)`) %>% tally() %>% arrange(desc(n)) %>% slice_head(n = 1) %>% unique() %>% arrange(match(primary_cluster_id_top20, base_table$primary_cluster_id_top20)) %>% select(-n)
+
+#Generate predominant IncF RSTs
+IncF_RSTs_top_20_clust <- genometa %>% select(name, Revised_Source_Niche, `IncF_RST..IncF RST`) %>% left_join(plasmid_df, by = 'name') %>% select(name, primary_cluster_id_top20, `IncF_RST..IncF RST`) %>% group_by(primary_cluster_id_top20, `IncF_RST..IncF RST`) %>% tally(sort = T) %>% slice_head(n = 1) %>% arrange(match(primary_cluster_id_top20, base_table$primary_cluster_id_top20)) %>% left_join(reps_per_top20_clust, by = "primary_cluster_id_top20") %>% filter(grepl("IncF",`rep_type(s)`)) %>% select(primary_cluster_id_top20, `IncF_RST..IncF RST`) %>% mutate(`IncF_RST..IncF RST` = replace_na(`IncF_RST..IncF RST`, "-"))
+
+#Generate source-wise table
+source_wise_primary_clusters <- plasmid_df %>% select(name, primary_cluster_id_top20, Revised_Source_Niche) %>% group_by(primary_cluster_id_top20, Revised_Source_Niche) %>% tally(sort = T) %>% pivot_wider(names_from = "Revised_Source_Niche", values_from = "n", values_fill = 0)
+
+#Combine all our tables
+table_plasmids <- left_join(base_table, reps_per_top20_clust, by = "primary_cluster_id_top20") %>%
+  left_join(IncF_RSTs_top_20_clust, by = "primary_cluster_id_top20") %>%
+  left_join(source_wise_primary_clusters, by = "primary_cluster_id_top20") %>%
+  rename("Primary Cluster ID" = primary_cluster_id_top20,
+         "Total" = n,
+         "IncF RST" = `IncF_RST..IncF RST`,
+        'Predominant Replicon'  = `rep_type(s)`) %>%
+  select(!matches("Total"), Total) %>%
+  mutate(Percentage = percent(Total/max(Total), accuracy = 0.01)) %>%
+  mutate(order = case_when(`Primary Cluster ID` == "Other" ~ "3",
+                           `Primary Cluster ID` == "Novel" ~ "2",
+                           `Primary Cluster ID` == "Total" ~ "4",
+                           .default = "1")) %>%
+  arrange(order, desc(Total)) %>%
+  mutate(`IncF RST` = replace_na(`IncF RST`, "-")) %>%
+  select(-order)
+
+knitr::kable(table_plasmids, align = "c")
+```
+
+# Statistical analysis for plasmids
+
+
+```{r eval=FALSE, include=FALSE}
+#Statistical analysis of novel plasmid carriage by source
+anova_df_source_novel <- novel_and_plasmid_counts %>%
+        select('name', 'Revised_Source_Niche','count_plasmids') %>%
+        mutate(Revised_Source_Niche = factor(Revised_Source_Niche,
+                                             levels = c("Food",
+                                                        "Environmental",
+                                                        "Livestock",
+                                                        "Wild Animal",
+                                                        "Human",
+                                                        "Companion Animal"))) %>%
+        unique()
+
+set.seed(1)
+
+anova_df_source_novel <- genometa %>% select(name, Consensus_phylogroup) %>% inner_join(anova_df_source_novel, by = 'name')
+
+subsampled_anova_df_source_novel <- anova_df_source_novel %>% filter(Consensus_phylogroup %in% c("A", "B1", "B2", "C", "D", "E", "F", "G")) %>% group_by(Revised_Source_Niche) %>% add_count() %>% ungroup() %>% group_by(Revised_Source_Niche, Consensus_phylogroup) %>% add_count() %>% mutate(nn = (1/nn)) %>% ungroup() %>% group_by(Revised_Source_Niche) %>% sample_n(size = min(.$n), weight = nn)
+
+subsampled_anova_df_source_novel %>% select(name) %>% as.data.frame() %>% write_delim("delims/stat_subset_names.txt")
+
+subsampled_anova_Source_novel <- aov(count_plasmids ~ Revised_Source_Niche, data = subsampled_anova_df_source_novel)
+
+summary(subsampled_anova_Source_novel)[[1]]
+
+means_df <- subsampled_anova_df_source_novel %>%
+    group_by(Revised_Source_Niche) %>%
+    summarise(mean_count = mean(count_plasmids))
+
+subsampled_anova_df_source_novel <- subsampled_anova_df_source_novel %>%
+    mutate(Revised_Source_Niche = factor(Revised_Source_Niche, 
+                                         levels = means_df$Revised_Source_Niche[order(means_df$mean_count)]))
+
+# Fit the ANCOVA model, controlling for the control variable
+ancova_model <- aov(count_plasmids ~ Revised_Source_Niche + Consensus_phylogroup, data = subsampled_anova_df_source_novel)
+
+# Get the summary of the ANCOVA model
+ancova_summary <- summary(ancova_model)
+
+# Print the ANCOVA summary to see the structure
+print(ancova_summary)
+
+tukey_result <- TukeyHSD(ancova_model)
+
+
+
+tukey_result <- TukeyHSD(subsampled_anova_Source_novel)
+
+tukey_df <- as.data.frame(tukey_result$`Revised_Source_Niche`)
+
+tukey_df <- tukey_df %>% filter(`p adj` < 0.05)
+
+tukey_df$pair <- rownames(tukey_df)
+
+# Filter for significant comparisons (adjust the threshold as needed)
+significant_comparisons <- tukey_df %>% filter(`p adj` < 0.05)
+
+comparisons <- strsplit(as.character(significant_comparisons$pair), "-")
+
+sorted_comparisons <- lapply(comparisons, function(x) sort(x))
+sorted_comparisons <- lapply(sorted_comparisons, function(x) paste(x, collapse = "-"))
+sorted_comparisons <- sorted_comparisons[order(sapply(sorted_comparisons, `[`, 1))]
+
+comparisons <- lapply(sorted_comparisons, function(x) strsplit(x, "-")[[1]])
+
+
+max_y <- max(subsampled_anova_df_source_novel$count_plasmids)
+
+p <- ggboxplot(subsampled_anova_df_source_novel, x = "Revised_Source_Niche", y = "count_plasmids", add = "jitter", palette = source_cols, fill = "grey70", color = "Revised_Source_Niche")
+
+p1 <- p + geom_signif(
+    comparisons = comparisons,
+    map_signif_level = TRUE,
+    y_position = seq(from = max_y + 1, by = 1, length.out = length(comparisons))
+)  + theme(legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.major = element_line(linewidth = 0.5, linetype = 'solid', colour = "grey80"),
+    panel.grid.minor = element_line(linewidth = 0.25, linetype = 'solid', colour = "grey90"),
+    plot.title = element_text(hjust = 0.5)) +
+  labs(x = "Source Niche", y = "Count of plasmids")
+```
+
+
+```{r}
+#Statistical analysis of novel plasmid carriage by source
+anova_df_source_novel <- novel_and_plasmid_counts %>%
+        select('name', 'Revised_Source_Niche','count_plasmids') %>%
+        mutate(Revised_Source_Niche = factor(Revised_Source_Niche,
+                                             levels = c("Food",
+                                                        "Environmental",
+                                                        "Livestock",
+                                                        "Wild Animal",
+                                                        "Human",
+                                                        "Companion Animal"))) %>%
+        unique()
+
+set.seed(1)
+
+anova_df_source_novel <- genometa %>% select(name, Consensus_phylogroup) %>% inner_join(anova_df_source_novel, by = 'name')
+
+subsampled_anova_df_source_novel <- anova_df_source_novel %>% filter(Consensus_phylogroup %in% c("A", "B1", "B2", "C", "D", "E", "F", "G")) %>% group_by(Revised_Source_Niche) %>% add_count() %>% ungroup() %>% group_by(Revised_Source_Niche, Consensus_phylogroup) %>% add_count() %>% mutate(nn = (1/nn)) %>% ungroup() %>% group_by(Revised_Source_Niche) %>% sample_n(size = min(.$n), weight = nn)
+
+subsampled_anova_df_source_novel %>% select(name) %>% as.data.frame() %>% write_delim("delims/stat_subset_names.txt")
+
+subsampled_anova_Source_novel <- aov(count_plasmids ~ Revised_Source_Niche, data = subsampled_anova_df_source_novel)
+
+summary(subsampled_anova_Source_novel)[[1]]
+
+means_df <- subsampled_anova_df_source_novel %>%
+    group_by(Consensus_phylogroup) %>%
+    summarise(mean_count = mean(count_plasmids))
+
+subsampled_anova_df_source_novel <- subsampled_anova_df_source_novel %>%
+    mutate(Consensus_phylogroup = factor(Consensus_phylogroup, 
+                                         levels = means_df$Consensus_phylogroup[order(means_df$mean_count)]))
+
+# Fit the ANCOVA model, controlling for the control variable
+ancova_model <- aov(count_plasmids ~ Consensus_phylogroup + Revised_Source_Niche, data = subsampled_anova_df_source_novel)
+
+# Get the summary of the ANCOVA model
+ancova_summary <- summary(ancova_model)
+
+# Print the ANCOVA summary to see the structure
+print(ancova_summary)
+
+tukey_result <- TukeyHSD(ancova_model)
+
+
+
+tukey_result <- TukeyHSD(ancova_model)
+
+tukey_df <- as.data.frame(tukey_result$Consensus_phylogroup)
+
+tukey_df <- tukey_df %>% filter(`p adj` < 0.05)
+
+tukey_df$pair <- rownames(tukey_df)
+
+# Filter for significant comparisons (adjust the threshold as needed)
+significant_comparisons <- tukey_df %>% filter(`p adj` < 0.05)
+
+comparisons <- strsplit(as.character(significant_comparisons$pair), "-")
+
+sorted_comparisons <- lapply(comparisons, function(x) sort(x))
+sorted_comparisons <- lapply(sorted_comparisons, function(x) paste(x, collapse = "-"))
+sorted_comparisons <- sorted_comparisons[order(sapply(sorted_comparisons, `[`, 1))]
+
+comparisons <- lapply(sorted_comparisons, function(x) strsplit(x, "-")[[1]])
+
+
+max_y <- max(subsampled_anova_df_source_novel$count_plasmids)
+
+max_y <- max(subsampled_anova_df_source_novel$count_plasmids)
+
+p <- ggboxplot(subsampled_anova_df_source_novel, x = "Consensus_phylogroup", y = "count_plasmids", add = "jitter", palette = clermont_cols, fill = "grey70", color = "Consensus_phylogroup")
+
+p2 <- p + geom_signif(
+    comparisons = comparisons,
+    map_signif_level = TRUE,
+    y_position = seq(from = max_y + 1, by = 1, length.out = length(comparisons))
+) +  theme(legend.position = "none",
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.major = element_line(linewidth = 0.5, linetype = 'solid', colour = "grey80"),
+    panel.grid.minor = element_line(linewidth = 0.25, linetype = 'solid', colour = "grey90"),
+    plot.title = element_text(hjust = 0.5)) +
+  labs(x = "Phylogroup", y = "Count of plasmids")
+```
+
+
+```{r eval=FALSE, include=FALSE}
+# Fit the ANCOVA model, controlling for the control variable
+ancova_model <- aov(count_plasmids ~ Revised_Source_Niche + Consensus_phylogroup, data = subsampled_anova_df_source_novel)
+
+# Get the summary of the ANCOVA model
+ancova_summary <- summary(ancova_model)
+
+# Print the ANCOVA summary to see the structure
+print(ancova_summary)
+
+tukey_result <- TukeyHSD(ancova_model)
+
+
+# Extract Tukey HSD results into a data frame
+tukey_df <- as.data.frame(tukey_result$Consensus_phylogroup)
+
+# Add comparison groups as separate columns
+tukey_df <- tukey_df %>%
+  rownames_to_column(var = "comparison") %>%
+  separate(comparison, into = c("group1", "group2"), sep = "-")
+
+# Plot using ggpubr
+ggpubr::ggdotchart(tukey_df, x = "group1", y = "diff",
+                   add = "segments",
+                   color = "group2",
+                   sorting = "ascending",
+                   add.params = list(color = "blue"),
+                   dot.size = 3) +
+  geom_errorbar(aes(ymin = lwr, ymax = upr), width = 0.2) +
+  labs(title = "Tukey HSD Test Results",
+       x = "Groups",
+       y = "Difference in Means") +
+  theme_pubr()
+
+
+
+
+# Extract Tukey HSD results into a data frame
+tukey_df <- as.data.frame(tukey_result$Revised_Source_Niche)
+
+# Add comparison groups as separate columns
+tukey_df <- tukey_df %>%
+  rownames_to_column(var = "comparison") %>%
+  separate(comparison, into = c("group1", "group2"), sep = "-")
+
+ggboxplot(subsampled_anova_df_source_novel, x = "Consensus_phylogroup", y = "count_plasmids", add = "jitter", palette = clermont_cols, fill = "grey70", color = "Consensus_phylogroup")
+
+
+
+table_plas_by_source <- subsampled_anova_df_source_novel %>% group_by(Revised_Source_Niche) %>% summarise(mean_plasmid_count = mean(count_plasmids))
+
+table_plas_by_phylogroup <- subsampled_anova_df_source_novel %>% group_by(Consensus_phylogroup) %>% summarise(mean_plasmid_count = mean(count_plasmids))
+
+```
+
+# Novel plasmid frequency
+```{r}
+#aggregate novel plasmid data
+agg_data <- novel_and_plasmid_counts %>%
+  group_by(name, Revised_Source_Niche) %>%
+  summarise(novel_count = sum(is_novel, na.rm = TRUE))
+
+#Generate a table with source-wise novel plasmid carriage data
+agg_data2 <- agg_data %>% group_by(Revised_Source_Niche) %>% summarise(Count = n(), mean = signif(mean(novel_count, accuracy = 0.1), 2), count_of_novels_per_source = sum(novel_count), count_of_novel_carrying_strains = sum(novel_count > 0))
+
+#Compute total count of novels
+count_novel_plasmids <- agg_data2$count_of_novels_per_source %>% sum()
+
+#Isolate counts per source
+human_count <- agg_data2 %>% filter(Revised_Source_Niche == "Human") %>% pull(Count)
+companion_animal_count <- agg_data2 %>% filter(Revised_Source_Niche == "Companion Animal") %>% pull(Count)
+food_count <- agg_data2 %>% filter(Revised_Source_Niche == "Food") %>% pull(Count)
+livestock_count <- agg_data2 %>% filter(Revised_Source_Niche == "Livestock") %>% pull(Count)
+wild_animal_count <- agg_data2 %>% filter(Revised_Source_Niche == "Wild Animal") %>% pull(Count)
+environment_count <- agg_data2 %>% filter(Revised_Source_Niche == "Environmental") %>% pull(Count)
+
+#Isolate mean of novel plasmids
+human_mean <- agg_data2 %>% filter(Revised_Source_Niche == "Human") %>% pull(mean)
+companion_animal_mean <- agg_data2 %>% filter(Revised_Source_Niche == "Companion Animal") %>% pull(mean)
+food_mean <- agg_data2 %>% filter(Revised_Source_Niche == "Food") %>% pull(mean)
+livestock_mean <- agg_data2 %>% filter(Revised_Source_Niche == "Livestock") %>% pull(mean)
+wild_animal_mean <- agg_data2 %>% filter(Revised_Source_Niche == "Wild Animal") %>% pull(mean)
+environment_mean <- agg_data2 %>% filter(Revised_Source_Niche == "Environmental") %>% pull(mean)
+
+#Isolate sum of novel plasmids
+human_novel_count <- agg_data2 %>% filter(Revised_Source_Niche == "Human") %>% pull(count_of_novels_per_source)
+companion_animal_novel_count <- agg_data2 %>% filter(Revised_Source_Niche == "Companion Animal") %>% pull(count_of_novels_per_source)
+food_novel_count <- agg_data2 %>% filter(Revised_Source_Niche == "Food") %>% pull(count_of_novels_per_source)
+livestock_novel_count <- agg_data2 %>% filter(Revised_Source_Niche == "Livestock") %>% pull(count_of_novels_per_source)
+wild_animal_novel_count <- agg_data2 %>% filter(Revised_Source_Niche == "Wild Animal") %>% pull(count_of_novels_per_source)
+environment_novel_count <- agg_data2 %>% filter(Revised_Source_Niche == "Environmental") %>% pull(count_of_novels_per_source)
+
+#Compute percent of novel plasmids
+human_novel_perc <- percent(human_novel_count/count_novel_plasmids, accuracy = 0.1)
+companion_animal_novel_perc <- percent(companion_animal_novel_count/count_novel_plasmids, accuracy = 0.1)
+food_novel_perc <- percent(food_novel_count/count_novel_plasmids, accuracy = 0.1)
+livestock_novel_perc <- percent(livestock_novel_count/count_novel_plasmids, accuracy = 0.1)
+wild_animal_novel_perc <- percent(wild_animal_novel_count/count_novel_plasmids, accuracy = 0.1)
+environment_novel_perc <- percent(environment_novel_count/count_novel_plasmids, accuracy = 0.1)
+
+#Compute count of strains from a given source novel plasmids
+human_novel_carrying_strains <- agg_data2 %>% filter(Revised_Source_Niche == "Human") %>% pull(count_of_novel_carrying_strains)
+companion_animal_novel_carrying_strains <- agg_data2 %>% filter(Revised_Source_Niche == "Companion_Animal") %>% pull(count_of_novel_carrying_strains)
+food_novel_carrying_strains <- agg_data2 %>% filter(Revised_Source_Niche == "Food") %>% pull(count_of_novel_carrying_strains)
+livestock_novel_carrying_strains <- agg_data2 %>% filter(Revised_Source_Niche == "Livestock") %>% pull(count_of_novel_carrying_strains)
+wild_animal_novel_carrying_strains <- agg_data2 %>% filter(Revised_Source_Niche == "Wild Animal") %>% pull(count_of_novel_carrying_strains)
+environment_novel_carrying_strains <- agg_data2 %>% filter(Revised_Source_Niche == "Environmental") %>% pull(count_of_novel_carrying_strains)
+
+#Compute percent of strains from a given source novel plasmids
+human_novel_carrying_perc <- percent(human_novel_carrying_strains/human_count, accuracy = 0.1)
+companion_animal_novel_carrying_perc <- percent(companion_animal_novel_carrying_strains/companion_animal_count, accuracy = 0.1)
+food_novel_carrying_perc <- percent(food_novel_carrying_strains/food_count, accuracy = 0.1)
+livestock_novel_carrying_perc <- percent(livestock_novel_carrying_strains/livestock_count, accuracy = 0.1)
+wild_animal_novel_carrying_perc <- percent(wild_animal_novel_carrying_strains/wild_animal_count, accuracy = 0.1)
+environment_novel_carrying_perc <- percent(environment_novel_carrying_strains/wild_animal_count, accuracy = 0.1)
+
+#Reformat human count for inline
+human_count <- human_count %>% format(big.mark = ",")
+
+
+```
+
+# F plasmid analyses
+
+```{r}
+mobtyper_predominant_reps <- mobtyper_df %>% separate_rows(`rep_type(s)`, sep = ",") %>% mutate(`rep_type(s)` = paste0("Rep_Gene_", `rep_type(s)`)) %>% mutate(val_col = 1) %>% group_by(primary_cluster_id)  %>% select(primary_cluster_id, `rep_type(s)`, val_col) %>% pivot_wider(names_from = "rep_type(s)", values_from = val_col, values_fill = 0, values_fn = sum) %>% select(-`Rep_Gene_-`) %>% pivot_longer(names_to = "rep_type(s)", cols = 2:ncol(.)) %>% arrange(desc(value)) %>% group_by(primary_cluster_id) %>% add_count() %>% slice_head(n = 1) %>% mutate(`rep_type(s)` = str_replace(`rep_type(s)`, "Rep_Gene_", ""))
+
+mobtyper_df_w_entropy <- detected_clusters_w_entropy %>% select(primary_cluster_id, Phylogroup_entropy) %>% unique() %>% inner_join(mobtyper_predominant_reps)
+
+mobtyper_df_w_entropy <- mobtyper_df %>% group_by(primary_cluster_id) %>% add_count() %>% select(primary_cluster_id, n) %>% inner_join(mobtyper_df_w_entropy, by = "primary_cluster_id")
+
+mobtyper_df_w_entropy <- mobtyper_df_w_entropy %>% mutate(`rep_type(s)` = str_replace(`rep_type(s)`, "^rep_cluster.*", "Other"))
+
+mobtyper_df_w_entropy <- mobtyper_df_w_entropy %>% mutate(`rep_type(s)` = str_replace(`rep_type(s)`, "IncI.*|IncK.*", "IncI/B/O/K/Z")) %>% mutate(`rep_type(s)` = str_replace(`rep_type(s)`, "IncF.*", "IncF")) %>% mutate(`rep_type(s)` = str_replace(`rep_type(s)`, "Col.*", "Col-type")) %>% mutate(`rep_type(s)` = str_replace(`rep_type(s)`, "IncX.*", "IncX")) %>% rename("Predominant Replicon" = "rep_type(s)") %>% rename("Count of Cluster" = n.x, "Phylogroup Entropy" = Phylogroup_entropy)
+
+rep_cols <- iwanthue(length(unique(mobtyper_df_w_entropy$`Predominant Replicon`)))
+
+names(rep_cols) <- sort(unique(mobtyper_df_w_entropy$`Predominant Replicon`))
+
+mobtyper_df_w_entropy %>% ggplot() + geom_point(aes(x = `Phylogroup Entropy`, y = `Count of Cluster`, color = `Predominant Replicon`)) + scale_color_manual(values = rep_cols)
+```
+
+
+```{r}
+count_total_clusters <- detected_clusters_w_entropy %>% select(primary_cluster_id) %>% unique() %>% nrow()
+
+plasmids_by_AMR_and_VAG <- detected_clusters_w_entropy %>% group_by(primary_cluster_id) %>% summarise(Count_w_VF = sum(Plasmid_VF_count > 0), Count_Total = n(), proportion_Vir = Count_w_VF/Count_Total, Count_w_AMR = sum(Plasmid_count_of_AMR_genes > 0), proportion_AMR = Count_w_AMR/Count_Total)
+
+count_AMR_clusters <- plasmids_by_AMR_and_VAG %>% filter(proportion_AMR > 0.6) %>% nrow()
+
+count_VAG_clusters <- plasmids_by_AMR_and_VAG %>% filter(proportion_Vir > 0.6) %>% nrow()
+
+count_VAG_and_AMR_clusters <- plasmids_by_AMR_and_VAG %>% filter(proportion_Vir > 0.6 & proportion_AMR > 0.6) %>% nrow()
+
+perc_AMR_clusters <- percent(count_AMR_clusters/count_total_clusters, accuracy = 0.1)
+
+perc_VAG_clusters <- percent(count_VAG_clusters/count_total_clusters, accuracy = 0.1)
+
+plasmids_by_AMR_and_VAG %>% left_join(unique(mobtyper_df_w_entropy)) %>% rename("Proportion Carrying Virulence Genes" = `proportion_Vir`) %>% ggplot() + geom_point(aes(x = `Phylogroup Entropy`, y = `Proportion Carrying Virulence Genes`, color = `Predominant Replicon`)) + scale_color_manual(values = rep_cols)
+```
+
+
+```{r}
+clusters_w_classification <- detected_clusters_w_entropy %>% separate_rows(`rep_type(s)`, sep = ",") %>% mutate(`rep_type(s)` = paste0("Rep_Gene_", `rep_type(s)`)) %>% mutate(val_col = 1) %>% group_by(primary_cluster_id) %>% pivot_wider(names_from = "rep_type(s)", values_from = val_col, values_fill = 0, values_fn = list(val_col = function(x) as.integer(sum(x) > 0))) %>% select(sample_id, primary_cluster_id, Plasmid_count_of_AMR_genes, Plasmid_VF_count, Plasmid_CIA_status, matches('Rep_Gene')) %>% group_by(primary_cluster_id) %>% mutate(Count_w_VF = sum(Plasmid_VF_count > 0), Count_Total = n(), proportion_Vir = Count_w_VF/Count_Total, Count_w_AMR = sum(Plasmid_count_of_AMR_genes > 0), proportion_AMR = Count_w_AMR/Count_Total)
+
+clusters_w_classification %>% filter(proportion_AMR > 0.6) %>% group_by(primary_cluster_id) %>% summarise(across(matches("Rep_Gene"), sum, na.rm = TRUE), Count_Total = unique(Count_Total)) %>% group_by(primary_cluster_id) %>% summarise(across(matches("Rep_Gene"), ~ . / Count_Total)) %>% column_to_rownames("primary_cluster_id") %>% select_if(~ !(all(. == 0, na.rm = TRUE))) %>%
+  rename_with(~ gsub("Rep_Gene_", "", .), everything())%>% pheatmap(fontsize_row = 4, colorRampPalette(c("white", "red"))(100))
+
+clusters_w_classification %>% filter(proportion_Vir > 0.6) %>% group_by(primary_cluster_id) %>% summarise(across(matches("Rep_Gene"), sum, na.rm = TRUE), Count_Total = unique(Count_Total)) %>% group_by(primary_cluster_id) %>% summarise(across(matches("Rep_Gene"), ~ . / Count_Total)) %>% column_to_rownames("primary_cluster_id") %>% select_if(~ !(all(. == 0, na.rm = TRUE))) %>%
+  rename_with(~ gsub("Rep_Gene_", "", .), everything()) %>% pheatmap(fontsize_row = 4, colorRampPalette(c("white", "red"))(100))
+
+
+clusters_w_classification %>% filter(proportion_Vir > 0.6 & proportion_AMR > 0.6) %>% group_by(primary_cluster_id) %>% summarise(across(matches("Rep_Gene"), sum, na.rm = TRUE), Count_Total = unique(Count_Total)) %>% group_by(primary_cluster_id) %>% summarise(across(matches("Rep_Gene"), ~ . / Count_Total)) %>% column_to_rownames("primary_cluster_id") %>% select_if(~ !(all(. == 0, na.rm = TRUE))) %>%
+  rename_with(~ gsub("Rep_Gene_", "", .), everything()) %>% pheatmap(fontsize_row = 8, colorRampPalette(c("white", "red"))(100))
+
+```
+
+ColV and senB-associated plasmids exhibit different phylogenetic and source distributions but are associated with virulence and resistance carriage (560 words)
+We identified the 12 most frequent virulence associated plasmid clusters identified in our collection and analysed their distribution throughout our genome collection to determine their sourcewise prevalence and phylogenetic promiscuity (measured as phylogroup entropy) (Supplementary Figure X). Most commonly, these plasmid clusters carrying virulence loci were associated with ColV virulence loci or senB/cjrABC (Table 1).
+
+```{r}
+virulence_clusters <- clusters_w_classification %>% filter(proportion_Vir > 0.6) %>% select(primary_cluster_id) %>% unique()
+
+base_table <- mobtyper_df_w_entropy %>% filter(primary_cluster_id %in% virulence_clusters$primary_cluster_id) %>% unique() %>% arrange(desc(`Count of Cluster`)) %>% select(primary_cluster_id, `Phylogroup Entropy`,  `Count of Cluster`)
+
+#Add in predominant F type
+base_table <- mobtyper_df %>% select(name, primary_cluster_id) %>% left_join(genometa, by = 'name') %>% select(name, primary_cluster_id, `IncF_RST..IncF RST`) %>% inner_join(base_table) %>% group_by(primary_cluster_id, `IncF_RST..IncF RST`) %>% add_count() %>% filter(`IncF_RST..IncF RST` != "F-:A-:B-") %>% arrange(desc(n)) %>% ungroup() %>% group_by(primary_cluster_id) %>% slice_head(n =1) %>% arrange(desc(`Count of Cluster`)) %>% select(-name, -n)
+
+#Add in ColV or SenB carriage
+base_table <- mobtyper_df %>% select(name, primary_cluster_id) %>% left_join(genometa, by = 'name') %>% select(name, primary_cluster_id, ColV, ABRICATE..vfdb_senB) %>% inner_join(base_table) %>% select(primary_cluster_id, ColV, ABRICATE..vfdb_senB) %>% group_by(primary_cluster_id) %>% 
+    # Calculate the proportion of rows carrying each gene
+    summarise(across(ColV:ABRICATE..vfdb_senB, ~ sum(. > 0, na.rm = TRUE) / n(), .names = "prop_{col}")) %>% inner_join(base_table, by = "primary_cluster_id") %>% arrange(desc(`Count of Cluster`))
+
+base_table <- mobtyper_df %>% select(name, primary_cluster_id) %>% left_join(genometa, by = "name") %>% select(name, primary_cluster_id, Revised_Source_Niche) %>% group_by(primary_cluster_id, Revised_Source_Niche) %>% tally(sort = T) %>% pivot_wider(names_from = "Revised_Source_Niche", values_from = n, values_fill = 0) %>% inner_join(base_table, by = 'primary_cluster_id')
+
+base_table <- base_table %>% rename("primary_cluster_id" = primary_cluster_id, "ColV+ (%)" = prop_ColV, "senB+ (%)" = prop_ABRICATE..vfdb_senB, "IncF RST" = `IncF_RST..IncF RST`) %>% mutate(`ColV+ (%)` = percent(`ColV+ (%)`, accuracy = 0.1), `senB+ (%)` = percent(`senB+ (%)`, accuracy = 0.1), `Phylogroup Entropy` = round(`Phylogroup Entropy`, digits = 3)) %>% select(`primary_cluster_id`, `IncF RST`, `ColV+ (%)`, `senB+ (%)`, `Phylogroup Entropy`, Human, Livestock, `Wild Animal`, Food, Environmental, `Companion Animal`, `Count of Cluster`) %>% arrange(desc(`Count of Cluster`)) %>% head(12)
+
+base_table %>% knitr::kable(align = 'c')
+```
+
+
+```{r}
+colV_carriers <- genometa %>% pull(ColV) %>% sum()
+
+senB_carriers <- genometa %>% pull(ABRICATE..vfdb_senB) %>% sum()
+
+combined_colV_senB <- (colV_carriers + senB_carriers) %>% format(big.mark = ",")
+
+colV_carriers <- colV_carriers %>% format(big.mark = ",")
+
+senB_carriers <- senB_carriers %>% format(big.mark = ",")
+
+
+senB_and_ColV <- genometa %>% select(ColV, ABRICATE..vfdb_senB) %>%
+    rowwise() %>%
+    mutate(row_sum = sum(c_across(ColV:ABRICATE..vfdb_senB))) %>%
+    ungroup() %>%  # It's good practice to ungroup after rowwise operations
+    group_by(row_sum > 1) %>%
+  tally() %>%
+  filter(`row_sum > 1` == TRUE) %>%
+  pull(n)
+
+senB_and_ColV_ST <- genometa %>% select(ST_new, ColV, ABRICATE..vfdb_senB) %>%
+    rowwise() %>%
+    mutate(row_sum = sum(c_across(ColV:ABRICATE..vfdb_senB))) %>%
+    ungroup() %>%  # It's good practice to ungroup after rowwise operations
+    group_by(row_sum > 1, ST_new) %>%
+  tally() %>%
+  filter(`row_sum > 1` == TRUE) %>%
+  arrange(desc(n)) %>% head(1) %>% mutate(ST_new = paste0("ST", ST_new)) %>% pull(ST_new)
+
+senB_and_ColV_ST_count <- genometa %>% select(ST_new, ColV, ABRICATE..vfdb_senB) %>%
+    rowwise() %>%
+    mutate(row_sum = sum(c_across(ColV:ABRICATE..vfdb_senB))) %>%
+    ungroup() %>%  # It's good practice to ungroup after rowwise operations
+    group_by(row_sum > 1, ST_new) %>%
+  tally() %>%
+  filter(`row_sum > 1` == TRUE) %>%
+  arrange(desc(n)) %>% head(1) %>% pull(n)
+```
+
+
+
+# Co-association of shared plasmid and cgMLST overlap
+
+```{r}
+# Conditionally open analysis/cgMLST_dists_5471.txt or unzip analysis/cgMLST_dists_5471.txt.gz
+if (file.exists("analysis/cgMLST_dists_5471.txt")) {
+  dists <- read_delim("analysis/cgMLST_dists_5471.txt", delim = "\t")
+} else if (file.exists("analysis/cgMLST_dists_5471.txt.gz")) {
+  cgMLST_dists_data_file <- unzip("analysis/cgMLST_dists_5471.txt.gz")
+  dists <- read_delim(cgMLST_dists_data_file, delim = "\t")
+} else {
+  stop("Neither analysis/cgMLST_dists_5471.txt nor analysis/cgMLST_dists_5471.txt.gz exists. Pull the repo again!")
+}
+
+#Convert to long format and rename columns
+dists <- dists %>% pivot_longer(names_to = "Sample 2", cols = 2:ncol(.)) %>% rename(`Sample 1` = `5471`) %>% filter(`Sample 1` != `Sample 2`)
+
+#Bind in meta/genotypic data
+dists <-  genometa %>% select(name, Revised_Source_Niche, ST_new, Collection_Year) %>% rename(`Sample 1` = name) %>% inner_join(dists, by = 'Sample 1')
+
+#Bind in meta/genotypic data
+dists <-  genometa %>% select(name, Revised_Source_Niche, ST_new, Collection_Year) %>% rename(`Sample 2` = name) %>% inner_join(dists, by = 'Sample 2')
+
+#Filter to close genomes
+close_dists <- dists %>% filter(value <= 10)
+
+#Count total number of pairs of close genomes
+count_close_genome_pairs <- nrow(close_dists) %>% format(big.mark = ',')
+
+#Filter close genomes which differ in source of origin
+close_dists_diff_source <- close_dists %>% filter(Revised_Source_Niche.x != Revised_Source_Niche.y)
+
+#Filter close genomes which share a source of origin
+close_dists_same_source <- close_dists %>% filter(Revised_Source_Niche.x == Revised_Source_Niche.y)
+
+#Count total number of genomes which were close (≤ 10 cgMLST alleles)
+count_less_equal_10 <- close_dists %>%
+  select(`Sample 1`, `Sample 2`) %>%
+  distinct() %>%
+  pivot_longer(cols = everything(), values_to = "unique_value") %>%
+  distinct(unique_value) %>% nrow() %>% format(big.mark = ',')
+
+#Count total number of genomes which were close (≤ 10 cgMLST alleles) and differed in source
+count_less_equal_10_diff_source <- close_dists_diff_source %>%
+  select(`Sample 1`, `Sample 2`) %>%
+  distinct() %>%
+  pivot_longer(cols = everything(), values_to = "unique_value") %>%
+  distinct(unique_value) %>% nrow()
+
+#Count total number of genome pairs whichw ere close and differed in source
+count_pairs_diff_source <- close_dists_diff_source %>% nrow()
+
+#Count total number of genomes which were close (≤ 10 cgMLST alleles) and shared source
+count_less_equal_10_same_source <- close_dists_same_source %>%
+  select(`Sample 1`, `Sample 2`) %>%
+  distinct() %>%
+  pivot_longer(cols = everything(), values_to = "unique_value") %>%
+  distinct(unique_value) %>% nrow() %>% format(big.mark = ',')
+
+#Count total number of genome pairs whichw ere close and differed in source
+count_pairs_same_source <- close_dists_same_source %>% nrow() %>% format(big.mark = ',')
+
+#Bind in plasmid data
+close_dists_w_plas <- mobtyper_df %>% select(primary_cluster_id, secondary_cluster_id, `rep_type(s)`, name) %>% rename(`Sample 1` = 'name') %>% right_join(close_dists_diff_source, by = 'Sample 1')
+
+#Bind in plasmid data
+close_dists_w_plas <- mobtyper_df %>% select(primary_cluster_id, secondary_cluster_id, `rep_type(s)`, name) %>% rename(`Sample 2` = 'name') %>% right_join(close_dists_w_plas, by = 'Sample 2')
+
+#Filter to genomes which carry plasmids in our plasmid table (F plasmids)
+close_dists_w_plas <- close_dists_w_plas %>% filter(primary_cluster_id.x %in% base_table$primary_cluster_id & primary_cluster_id.y %in% base_table$primary_cluster_id)
+
+#Cont number of primary clusters in this cohort with F plasmids
+count_f_plasmids_in_close <- close_dists_w_plas %>% select(primary_cluster_id.x, primary_cluster_id.y) %>%
+  distinct() %>%
+  pivot_longer(cols = everything(), values_to = "unique_value") %>%
+  distinct(unique_value) %>% nrow()
+
+#Cont number of isolates in this cohort with F plasmids
+count_f_plasmids_in_close <- close_dists_w_plas %>%
+  select(`Sample 1`, `Sample 2`) %>%
+  distinct() %>%
+  pivot_longer(cols = everything(), values_to = "unique_value") %>%
+  distinct(unique_value) %>% nrow()
+
+#Count pairs of strains which shared a primary plasmid cluster
+count_close <- close_dists_w_plas %>% nrow()
+
+#Count pairs of strains which shared a primary plasmid cluster
+count_primary_plas_clusts_close <- close_dists_w_plas %>%
+    filter(primary_cluster_id.x == primary_cluster_id.y) %>% nrow()
+
+#Count pairs of strains which shared a secondary plasmid cluster
+count_secondary_plas_clusts_close <- close_dists_w_plas %>%
+    filter(secondary_cluster_id.x == secondary_cluster_id.y) %>% nrow()
+```
+
+
+
+```{r}
+
+library(circlize)
+
+# Create an adjacency matrix: 
+chord_data <- close_dists_w_plas %>%
+        filter(value != 0) %>% mutate("Source_Combo" = paste0(pmin(as.character(Revised_Source_Niche.x), as.character(Revised_Source_Niche.y)), "/", pmax(as.character(Revised_Source_Niche.x), as.character(Revised_Source_Niche.y)))) %>%
+        group_by(primary_cluster_id.x, Source_Combo) %>% summarise(counts = n()) %>%
+        pivot_wider(id_cols = primary_cluster_id.x, names_from = Source_Combo, values_from = counts, values_fill = 0) %>% column_to_rownames("primary_cluster_id.x") %>% t() %>% as.data.frame() %>% select(AA171, AA337, AA297, AA735, AA315, AA297, AA174, AE638, AA179, AA175, AA176) %>%
+  t() 
+
+# Make the circular plot
+chordDiagram(chord_data, transparency = 0.5)
+
+# Clockwise labels may require increasing the canvas margins
+circos.par(canvas.xlim=c(-1.5,1.5),canvas.ylim=c(-1.5,1.5))
+#df.test=df[,c(1,2)]
+
+set.seed(2)
+
+circos.clear()
+
+par(cex = 0.5)
+
+grid.col = c(
+  AA171 = 'blue4',
+  AA297 = "blue2",
+  AA337 = "blue3",
+  AA324 = "lightblue4",
+  AA735 = "grey",
+  AA315 = "grey50",
+  AA174 = "black",
+  AE638 = "pink",
+  AA179 = "red1",
+  AA175 = "red2",
+  AA176 = "red3",
+  AA747 = "red4"
+)
+
+chordDiagram(chord_data, annotationTrack = "grid", preAllocateTracks = 1, grid.col = grid.col)
+circos.trackPlotRegion(track.index = 1, panel.fun = function(x, y) {
+  xlim = get.cell.meta.data("xlim")
+  ylim = get.cell.meta.data("ylim")
+  sector.name = get.cell.meta.data("sector.index")
+  circos.text(mean(xlim), ylim[1] + cm_h(1.5), sector.name, facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex =1.5)
+  circos.axis(h = "top", labels.cex =1, major.tick.percentage = 0.2, sector.index = sector.name, track.index = 2)
+}, bg.border = NA)
+```
+
+
+```{r}
+clust_id = "AA176"
+
+detected_clusters %>% filter(primary_cluster_id == clust_id) %>% arrange(desc(size)) %>% group_by(secondary_cluster_id) %>% add_count() %>% slice_head(n = 1) %>% arrange(desc(n))
+
+
+set.seed(1)
+
+genometa %>% select(name, ST_new) %>% full_join(mobtyper_df, by = 'name') %>% filter(secondary_cluster_id %in% c("AH856", "AH858", "AH855")) %>% group_by(secondary_cluster_id, ST_new) %>% add_count() %>% arrange(desc(n)) %>% slice_sample(n = 1) %>% select(name, ST_new, primary_cluster_id, secondary_cluster_id, n) %>% arrange(secondary_cluster_id, desc(n)) %>% group_by(secondary_cluster_id) %>% slice_head(n = 5)
+```
+
+
+```{r}
+clust_id = "AA337"
+
+detected_clusters %>% filter(primary_cluster_id == clust_id) %>% arrange(desc(size)) %>% group_by(secondary_cluster_id) %>% add_count() %>% slice_head(n = 1) %>% arrange(desc(n))
+
+set.seed(1)
+
+genometa %>% select(name, ST_new) %>% full_join(mobtyper_df, by = 'name') %>% filter(secondary_cluster_id %in% c("AI278", "AI277")) %>% group_by(secondary_cluster_id, ST_new) %>% add_count() %>% arrange(desc(n)) %>% slice_sample(n = 1) %>% select(name, ST_new, primary_cluster_id, secondary_cluster_id, n) %>% arrange(secondary_cluster_id, desc(n)) %>% group_by(secondary_cluster_id) %>% slice_head(n = 5)
+```
+
+```{r}
+clust_id = "AA171"
+
+detected_clusters %>% filter(primary_cluster_id == clust_id) %>% arrange(desc(size)) %>% group_by(secondary_cluster_id) %>% add_count() %>% slice_head(n = 1) %>% arrange(desc(n))
+
+set.seed(1)
+
+genometa %>% select(name, ST_new) %>% full_join(mobtyper_df, by = 'name') %>% filter(secondary_cluster_id %in% c("AH824", "AH825", "AH826", "AH827", "AH828", "AH829")) %>% group_by(secondary_cluster_id, ST_new) %>% add_count() %>% arrange(desc(n)) %>% slice_sample(n = 1) %>% select(name, ST_new, primary_cluster_id, secondary_cluster_id, n) %>% arrange(secondary_cluster_id, desc(n)) %>% group_by(secondary_cluster_id) %>% slice_head(n = 5)
+```
+
+```{r}
+#Write supp table 2
+detected_clusters %>% write_delim("supplementary/Supplementary_Table_2.txt", delim = "\t")
+                                                                                                                                                             
+#Write supp table 1
+mobtyper_df_wide <- mobtyper_df %>% mutate(primary_cluster_id = str_replace(pattern = "novel.*", replacement = "Novel (Unclustered)", primary_cluster_id)) %>% select(name, primary_cluster_id) %>% mutate(val_col = 1) %>% pivot_wider(names_from = "primary_cluster_id", values_from = val_col, values_fill = 0, values_fn = sum) %>% select(everything(), `Novel (Unclustered)`)
+
+Supp_table_1 <- read_delim("supplementary/Supplementary_Table_1_base.txt", delim = "\t") %>% select(1:16)
+
+Supp_table_1_extra_cols <- left_join(genometa, mobtyper_df_wide, by = 'name') %>% select(c(1:7, 56:ncol(.)))
+
+Supp_table_1 <- Supp_table_1 %>% left_join(Supp_table_1_extra_cols, by = 'name') %>% select(-`PopPunk Cluster (Clusters merged by PopPunk are separated by underscores)`, -`cgMLST cluster (40 allelic distance)`)
+
+Supp_table_1 %>% write_delim("supplementary/Supplementary_Table_1.txt", delim = "\t")
+```
+
+
+### Exploratory Heatmaps
+```{r}
+mobsuite_contigs <- read_delim("analysis/mobsuite_concatenated_mge_report.txt", delim = "\t")
+
+mobsuite_contigs <- mobsuite_contigs %>% mutate(name_contig = paste0(sample_id, "_", str_replace(contig_id, " .*", "")))
+
+# Conditionally open analysis/genotype.txt or unzip analysis/genotype.txt
+if (file.exists("analysis/genotype.txt")) {
+  abricate_data <- read_delim("analysis/genotype.txt", delim = "\t")
+} else if (file.exists("analysis/genotype.txt.gz")) {
+  abricate_data_file <- unzip("analysis/genotype.txt.gz")
+  abricate_data <- read_delim(abricate_data_file, delim = "\t")
+} else {
+  stop("Neither analysis/genotype.txt nor analysis/genotype.txt.gz exists. Pull the repo again!")
+}
+
+abricate_data <- abricate_data %>% mutate(name_contig = paste0(name, "_", SEQUENCE))
+
+mobsuite_contigs <- full_join(mobsuite_contigs, abricate_data, by = "name_contig")
+
+mobsuite_contigs <- mobsuite_contigs %>% filter(molecule_type != "chromosome")
+
+mobsuite_contigs <- mobsuite_contigs %>% filter(`%COVERAGE` >= 90, `%IDENTITY` >= 90)
+
+mobsuite_contigs %>% select(name, primary_cluster_id, GENE, DATABASE) %>% mutate(GENE_DB = paste0(DATABASE, "_", GENE)) %>% select(-GENE, -DATABASE) %>% mutate(val_col = 1) %>% pivot_wider(values_from = val_col, names_from = "GENE_DB", values_fill = 0, values_fn = sum)
+
+pheatmap1_df <- mobsuite_contigs %>% select(name, primary_cluster_id, GENE, DATABASE) %>% mutate(GENE_DB = paste0(DATABASE, "_", GENE)) %>% select(-GENE, -DATABASE) %>% mutate(val_col = 1) %>% pivot_wider(values_from = val_col, names_from = "GENE_DB", values_fill = 0, values_fn = sum) %>% filter(primary_cluster_id %in% base_table$primary_cluster_id[1:12]) %>% select(-name) %>% group_by(primary_cluster_id) %>% summarise(across(everything(), ~ sum(. > 0, na.rm = TRUE) / n(), .names = "prop_{col}")) %>% column_to_rownames('primary_cluster_id') %>% select_if(~ sum(.) != 0) %>% select(matches("EC_custom|vfdb"))
+
+pheatmap1_df %>% pheatmap(fontsize_col = 4, cluster_cols = F)
+
+cols_heatmap <- colnames(pheatmap1_df) %>% str_replace(., "prop_", "ABRICATE..")
+
+pheatmap2_df <- mobtyper_df %>%
+    # Select relevant columns from mobtyper_df
+    select(name, primary_cluster_id) %>%
+    # Join with genometa on 'name'
+    left_join(genometa, by = 'name') %>%
+    # Select relevant columns after the join
+    select(name, primary_cluster_id, matches("ABRICATE..vfdb"), matches("ABRICATE..EC_custom")) %>%
+    # Inner join with base_table
+    inner_join(base_table, by = "primary_cluster_id") %>%
+    # Select columns that are also in detected_clusters
+    select(name, primary_cluster_id, colnames(.)[colnames(.) %in% cols_heatmap]) %>%
+    # Group by primary_cluster_id
+    group_by(primary_cluster_id) %>%
+    # Calculate the proportion of rows carrying each gene
+    summarise(across(matches("ABRICATE"), ~ sum(. > 0, na.rm = TRUE) / n(), .names = "prop_{col}")) %>%
+    # Ensure unique rows for each primary_cluster_id
+    unique() %>%
+  # Filter only for clusters from our table
+  filter(primary_cluster_id %in% base_table$primary_cluster_id[1:12]) %>%
+    # Set primary_cluster_id as row names
+    column_to_rownames("primary_cluster_id") %>%
+      # Remove columns that are all zeros
+    select_if(~ !(all(. == 0, na.rm = TRUE))) %>%
+  rename_with(~ gsub("ABRICATE..", "", .), everything())
+
+pheatmap2_df <- pheatmap2_df %>% select(colnames(pheatmap1_df))
+
+
+
+```
+```{r}
+pheatmap3_df <- detected_clusters %>%
+  #rename sample_id
+  rename('name' = sample_id) %>%
+    select(name, primary_cluster_id, matches("ABRICATE..vfdb"), matches("ABRICATE..EC_custom")) %>%
+    # Inner join with base_table
+    inner_join(base_table, by = "primary_cluster_id") %>%
+    # Select columns that are also in detected_clusters
+    select(name, primary_cluster_id, colnames(.)[colnames(.) %in% cols_heatmap]) %>%
+    # Group by primary_cluster_id
+    group_by(primary_cluster_id) %>%
+    # Calculate the proportion of rows carrying each gene
+    summarise(across(matches("ABRICATE"), ~ sum(. > 0, na.rm = TRUE) / n(), .names = "prop_{col}")) %>%
+    # Ensure unique rows for each primary_cluster_id
+    unique() %>%
+  # Filter only for clusters from our table
+  filter(primary_cluster_id %in% base_table$primary_cluster_id[1:12]) %>%
+    # Set primary_cluster_id as row names
+    column_to_rownames("primary_cluster_id") %>%
+      # Remove columns that are all zeros
+    select_if(~ !(all(. == 0, na.rm = TRUE))) %>%
+  rename_with(~ gsub("ABRICATE..", "", .), everything())
+
+pheatmap3_df %>%
+    # Generate the heatmap with specified font sizes
+    pheatmap(fontsize_col = 4, cluster_cols = F)
+
+pheatmap2_df <- pheatmap2_df %>% select(colnames(pheatmap3_df))
+
+pheatmap2_df %>%
+    # Generate the heatmap with specified font sizes
+    pheatmap(fontsize_col = 4, cluster_cols = F)
+
+pheatmap3_df - pheatmap2_df
+
+pheatmap1_df %>% select(colnames(pheatmap3_df)) %>%
+    # Generate the heatmap with specified font sizes
+    pheatmap(fontsize_col = 4, cluster_cols = F)
+```
+
+
+```{r}
+df3 <- pheatmap2_df %>% rownames_to_column('rownem') %>% mutate(rownem = str_replace(rownem, '$',"_")) %>% column_to_rownames('rownem') %>% bind_rows(pheatmap3_df) %>% rownames_to_column('rownem') %>% arrange(rownem) %>% column_to_rownames('rownem') 
+
+df3 %>% pheatmap(cluster_rows = F, colorRampPalette(c("white", "red"))(100))
+
+pheatmap1_df %>% select(colnames(df3)) %>% rownames_to_column('rownem') %>% mutate(rownem = str_replace(rownem, '$',"__")) %>% column_to_rownames('rownem') %>% bind_rows(df3) %>% rownames_to_column('rownem') %>% arrange(rownem) %>% column_to_rownames('rownem') %>% pheatmap(cluster_rows = F , colorRampPalette(c("white", "red"))(100))
+```
+
+```{r}
+pheatmap4_df <- detected_clusters %>%
+  #rename sample_id
+  rename('name' = sample_id) %>%
+    select(name, primary_cluster_id, matches("ABRICATE..vfdb"), matches("ABRICATE..EC_custom"), matches("ABRICATE..CARD")) %>%
+    # Inner join with base_table
+    inner_join(base_table, by = "primary_cluster_id") %>%
+    # Select columns that are also in detected_clusters
+    select(name, primary_cluster_id, matches("ABRICATE")) %>%#, colnames(.)[colnames(.) %in% cols_heatmap]) %>%
+    # Group by primary_cluster_id
+    group_by(primary_cluster_id) %>%
+    # Calculate the proportion of rows carrying each gene
+    summarise(across(matches("ABRICATE"), ~ sum(. > 0, na.rm = TRUE) / n(), .names = "prop_{col}")) %>%
+    # Ensure unique rows for each primary_cluster_id
+    unique() %>%
+  # Filter only for clusters from our table
+  filter(primary_cluster_id %in% base_table$primary_cluster_id[1:12]) %>%
+    # Set primary_cluster_id as row names
+    column_to_rownames("primary_cluster_id") %>%
+      # Remove columns that are all zeros
+    select_if(~ !(all(. == 0, na.rm = TRUE))) %>%
+  rename_with(~ gsub("ABRICATE..", "", .), everything())
+
+pheatmap4_df %>%
+    # Generate the heatmap with specified font sizes
+    pheatmap(fontsize_col = 4, cluster_cols = F)
+```
+
+```{r}
+strains_w_major_plasmids <- mobtyper_df %>% filter(primary_cluster_id %in% c("AA171",
+"AA176",
+"AA337",
+"AA352",
+"AA174",
+"AA324",
+"AA175",
+"AA297",
+"AA315",
+"AE638",
+"AA179",
+"AA735")) %>% select(name, primary_cluster_id)
+
+strains_w_major_plasmids_genometa <- genometa %>% filter(name %in% strains_w_major_plasmids$name)
+
+strains_w_major_plasmids_genometa <- full_join(strains_w_major_plasmids_genometa, strains_w_major_plasmids, by = 'name')
+
+table_for_genes <- strains_w_major_plasmids_genometa %>%
+    group_by(primary_cluster_id) %>%
+    summarise(
+      "ColV" = paste0(sum(ColV > 0)," (", scales::percent(mean(`ColV`), accuracy = 0.1), ")"),
+      "senB" = paste0(sum(`ABRICATE..vfdb_senB` > 0)," (", scales::percent(mean(`ABRICATE..vfdb_senB`), accuracy = 0.1), ")"),
+      "HPI Carriage" = paste0(sum(`ABRICATE..vfdb_fyuA/psn` > 0)," (", scales::percent(mean(`ABRICATE..vfdb_fyuA/psn`), accuracy = 0.1), ")"),
+              "CIA Status" = paste0(sum(`Strain_CIA_status` > 0)," (", scales::percent(mean(`Strain_CIA_status`), accuracy = 0.1), ")"),
+              "MDR Status" = paste0(sum(`Strain_MDR_status` > 0)," (", scales::percent(mean(`Strain_MDR_status`), accuracy = 0.1), ")"),
+              "intI1 Carriage" = paste0(sum(`ABRICATE..EC_custom_intI1_HQ730118.1` > 0)," (", scales::percent(mean(`ABRICATE..EC_custom_intI1_HQ730118.1`), accuracy = 0.1), ")")) %>%
+    mutate("Plasmid Type" = case_when(primary_cluster_id == "AA171" ~ 'senB',
+                                      primary_cluster_id == "AA297" ~ "senB",
+                                      primary_cluster_id == "AA337" ~ "senB",
+                                      primary_cluster_id == "AA324" ~ "senB",
+                                      primary_cluster_id == "AA352" ~ "senB",
+                                      primary_cluster_id == "AA735" ~ "Other",
+                                      primary_cluster_id == "AA315" ~ "Other",
+                                      primary_cluster_id == "AA174" ~ "Other",
+                                      primary_cluster_id == "AE638" ~ "ColV",
+                                      primary_cluster_id == "AA179" ~ "ColV",
+                                      primary_cluster_id == "AA175" ~ "ColV",
+                                      primary_cluster_id == "AA176" ~ "ColV",
+                                      primary_cluster_id == "AA747" ~ "ColV")) %>%
+    select(primary_cluster_id, `Plasmid Type`, everything())
+
+tmp_df <- as.data.frame(
+  c("AA171",
+"AA176",
+"AA337",
+"AA352",
+"AA174",
+"AA324",
+"AA175",
+"AA297",
+"AA315",
+"AE638",
+"AA179",
+"AA735"))
+
+
+
+colnames(tmp_df) <- 'primary_cluster_id'
+
+left_join(tmp_df, table_for_genes)
+```
+
