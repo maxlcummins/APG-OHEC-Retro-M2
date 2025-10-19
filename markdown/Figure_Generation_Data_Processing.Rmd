@@ -206,15 +206,25 @@ set.seed(1)
 sunburst_df <- sunburst_df %>% select(label, values, parent, Source_col)
 
 # Plot
-fig <- plot_ly(sunburst_df,
-               labels = ~label,
-               parents = ~parent,
-               values = ~values,
-  type = 'sunburst', branchvalues = 'total') %>%
-        layout(colorway = ~Source_col)
+fig <- plot_ly(
+  sunburst_df,
+  labels = ~label,
+  parents = ~parent,
+  values = ~values,
+  type = 'sunburst',
+  branchvalues = 'total'
+) %>%
+  layout(
+    # example: scale base font size up by 50%
+    font = list(size = 24),  # affects legend, hover, titles
+    sunburstcolorway = ~Source_col
+  ) %>%
+  style(
+    insidetextfont = list(size = 18),   # sector labels inside
+    outsidetextfont = list(size = 18)   # sector labels outside
+  )
 
-# View Plot
-fig 
+fig
 ```
 
 
@@ -225,12 +235,10 @@ mobtyper_df <- vroom("analysis/mobtyper_results_concatenated.txt", show_col_type
 # Read in our data on the mobtyper database
 if (!exists("clusters")) {
     if (file.exists("delims/plasmid_cluster_data.txt.gz")) {
-        # Unzip the file
-        gunzip("delims/plasmid_cluster_data.txt.gz", remove = FALSE, overwrite = TRUE)
-        clusters <- vroom("delims/plasmid_cluster_data.txt")
+        clusters <- vroom("delims/plasmid_cluster_data.txt.gz", delim = "\t")
     } else {
         source("scripts/plasmid_data_aggregate.R")
-        clusters <- vroom("delims/plasmid_cluster_data.txt")
+        clusters <- vroom("delims/plasmid_cluster_data.txt", delim = "\t")
     }
 }
 
@@ -1237,4 +1245,201 @@ colnames(tmp_df) <- 'primary_cluster_id'
 
 left_join(tmp_df, table_for_genes)
 ```
+## Supplementary ARG Cluster Carriage Table
 
+```{r}
+#Read in plasmid clusters
+plasmid_abritamr <- vroom("analysis/mobsuite_ref_plasmid_pipelord/mobsuite_refs_abritamr_resistance.txt", show_col_types = FALSE)
+
+#Rename name column
+plasmid_abritamr<- plasmid_abritamr %>% rename('sample_id' = name)
+
+#Create a list of samples in our tree
+sample_names <- clusters %>% select(sample_id)
+
+#Filter out samples not in the tree, add in those missing from dataframe
+plasmid_abritamr <- left_join(sample_names, plasmid_abritamr)
+
+#Prepend plasmid_abritamr cols with ABRITAMR
+colnames(plasmid_abritamr) <- gsub("^", "ABRITAMR.", colnames(plasmid_abritamr))
+
+#Get rid of spaces from column names
+colnames(plasmid_abritamr) <- gsub(" ", "_", colnames(plasmid_abritamr))
+
+plasmid_abritamr_long <- plasmid_abritamr %>%
+  rename(sample_id = ABRITAMR.sample_id) %>% 
+  pivot_longer(
+    cols = starts_with("ABRITAMR.") & !matches("ABRITAMR.sample_id"), # exclude sample_id
+    names_to = "class",
+    values_to = "genes"
+  ) %>%
+  filter(!is.na(genes) & genes != "") %>%
+  mutate(
+    class = str_remove(class, "^ABRITAMR\\."),   # clean the class name
+    genes = str_split(genes, ",\\s*")            # split by comma
+  ) %>%
+  unnest(genes) %>%
+  mutate(genes = str_trim(genes)) %>%
+  mutate(genes = str_replace(genes, '\\*','')) # Remove asterisks which indicate partial matches
+
+plasmid_abritamr_long <- plasmid_abritamr_long %>%
+  mutate(
+    genes = if_else(
+      str_detect(class, "Quinolone|(?<!not_)ESBL|(?<!or_)Carbapenemase|Colistin|Macrolide|Lincosamide"),
+      paste0("^", genes),
+      genes
+    )
+  )
+
+
+plasmid_abritamr_wide <- plasmid_abritamr_long %>%
+  select(sample_id, genes) %>%
+  unique() %>%
+  mutate(present = 1) %>% pivot_wider(names_from = genes, values_from = present, values_fill = 0)
+
+plasmid_abritamr_wide <- clusters %>% select(sample_id, primary_cluster_id) %>% full_join(plasmid_abritamr_wide)
+
+arg_cluster_df <- plasmid_abritamr_wide %>%
+  filter(primary_cluster_id %in% tmp_df$primary_cluster_id) %>%
+    select(
+      where(~ !is.numeric(.) || sum(., na.rm = TRUE) != 0)
+    ) %>%
+    pivot_longer(
+        cols = 3:ncol(.),
+        names_to = "gene",
+        values_to = "presence"
+    ) %>%
+    group_by(primary_cluster_id, gene) %>%
+    summarise(
+        n_positive = sum(presence, na.rm = TRUE),
+        n_total = n(),
+        prop_positive = n_positive / n_total
+    )
+
+arg_cluster_df <- arg_cluster_df %>%
+  mutate(
+    primary_cluster_id = factor(
+      primary_cluster_id,
+      levels = rev(tmp_df$primary_cluster_id)
+    )
+  )
+
+ggplot(arg_cluster_df, aes(x = gene, y = primary_cluster_id, fill = prop_positive)) +
+  geom_tile(color = "grey90") +
+  geom_text(
+    aes(
+      label = ifelse(is.na(prop_positive) | prop_positive == 0, "", percent(prop_positive, accuracy = 1)),
+      color = ifelse(prop_positive > 0.5, "white", "black")
+    ),
+    size = 3,
+    angle = 90,            # rotate text vertically
+    vjust = 0.5,           # center vertically in the tile
+    hjust = 0.5            # center horizontally
+  ) +
+  scale_color_identity(guide = "none") +
+  scale_fill_gradientn(
+    colours = c("white", "#2b8cbe", "#de2d26"),
+    values = scales::rescale(c(0, 0.5, 1)),
+    limits = c(0, 1),
+    name = "Proportion\nPositive",
+    na.value = "white"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 10),
+    axis.text.y = element_text(size = 8),
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "Antibiotic Resistance Gene",
+    y = "Primary Cluster ID",
+    title = "ARG carriage by Cluster (Most Frequently Detected Reference Plasmids)"
+  ) +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))
+```
+## Supplementary ARG Cluster Carriage Table
+
+```{r}
+plasmid_vfdb_long <- clusters %>%
+  filter(primary_cluster_id %in% tmp_df$primary_cluster_id) %>% 
+  select(sample_id, primary_cluster_id, matches("ABRICATE..vfdb"), matches("ABRICATE..EC_custom")) %>%
+  select(
+      where(~ !is.numeric(.) || sum(., na.rm = TRUE) != 0)
+    ) %>%
+  pivot_longer(
+    cols = starts_with("ABRICATE."),
+    names_to = "genes",
+    values_to = "present"
+  ) %>%
+  mutate(
+    genes = str_remove(genes, "^ABRICATE\\..")
+  ) %>%
+  mutate(
+    genes = str_replace(genes, "EC_custom_sitA_.*", "EC_custom_sitA")
+  ) %>%
+    group_by(primary_cluster_id, genes) %>%
+    summarise(
+        n_positive = sum(present, na.rm = TRUE),
+        n_total = n(),
+        prop_positive = n_positive / n_total
+    )
+
+plasmid_vfdb_long <- plasmid_vfdb_long %>%
+  mutate(
+    primary_cluster_id = factor(
+      primary_cluster_id,
+      levels = rev(tmp_df$primary_cluster_id)
+    )
+  )
+
+unwanted_EC_custom <- c(
+  "EC_custom_intI1_HQ730118.1",
+  "EC_custom_F36-arc-F31",
+  "EC_custom_IS1-arc-IS1",
+  "EC_custom_merA_CP022086.1",
+  "EC_custom_iucD_AY545598.5",
+  "EC_custom_iutA_KU578032.1",
+  "EC_custom_ompT_chromosomal_O157-H7_NC_002695",
+  "EC_custom_senB_pUTI89_NC_007941",
+  "EC_custom_terA_CP019559.1"
+)
+
+plasmid_vfdb_long <- plasmid_vfdb_long %>% filter(genes %nin% unwanted_EC_custom)
+
+plasmid_vfdb_long <- plasmid_vfdb_long %>% mutate(genes = str_replace(genes, "EC_custom_", "^")) %>%
+  mutate(genes = str_replace(genes, "vfdb_", "")) %>%
+  mutate(genes = str_replace(genes, "_.*", ""))
+
+ggplot(plasmid_vfdb_long, aes(x = genes, y = primary_cluster_id, fill = prop_positive)) +
+  geom_tile(color = "grey90") +
+  geom_text(
+    aes(
+      label = ifelse(is.na(prop_positive) | prop_positive == 0, "", percent(prop_positive, accuracy = 1)),
+      color = ifelse(prop_positive > 0.5, "white", "black")
+    ),
+    size = 3,
+    angle = 90,            # rotate text vertically
+    vjust = 0.5,           # center vertically in the tile
+    hjust = 0.5            # center horizontally
+  ) +
+  scale_color_identity(guide = "none") +
+  scale_fill_gradientn(
+    colours = c("white", "#2b8cbe", "#de2d26"),
+    values = scales::rescale(c(0, 0.5, 1)),
+    limits = c(0, 1),
+    name = "Proportion\nPositive",
+    na.value = "white"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 10),
+    axis.text.y = element_text(size = 8),
+    panel.grid = element_blank()
+  ) +
+  labs(
+    x = "Virulence Associated Gene (VAG)",
+    y = "Primary Cluster ID",
+    title = "VAG carriage by Cluster (Most Frequently Detected Reference Plasmids)"
+  ) +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))
+```
