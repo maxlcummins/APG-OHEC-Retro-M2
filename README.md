@@ -1,6 +1,6 @@
 # APG-OHEC-Retro-M2: Plasmid Analysis and Data Visualization Repository
 
-This repository contains the data, scripts, and supplementary materials for the manuscript "Genomic Analysis of Plasmid Distribution and Evolution in Escherichia coli" by Cummins, Watt and Donato et al., 2025. The study examines plasmid distribution across different E. coli sources and phylogroups, with a focus on virulence and antimicrobial resistance gene carriage.
+This repository contains the data, scripts, and supplementary materials for the manuscript "The Escherichia coli F plasmidome: an Australian perspective" by Cummins, Watt and Donato et al., 2025. The study examines plasmid distribution across different E. coli sources and phylogroups, with a focus on F plasmids and their virulence and antimicrobial resistance gene carriage.
 
 ## Repository Structure
 ```
