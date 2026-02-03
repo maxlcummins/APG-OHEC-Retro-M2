@@ -1443,3 +1443,58 @@ ggplot(plasmid_vfdb_long, aes(x = genes, y = primary_cluster_id, fill = prop_pos
   ) +
   scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15))
 ```
+
+# Supplementary Figure 1
+```{r}
+size_stats <- mobtyper_df %>%
+  summarise(
+    n = n(),
+    min_bp = min(size, na.rm = TRUE),
+    q1_bp  = quantile(size, 0.25, na.rm = TRUE, type = 7),
+    med_bp = median(size, na.rm = TRUE),
+    q3_bp  = quantile(size, 0.75, na.rm = TRUE, type = 7),
+    max_bp = max(size, na.rm = TRUE)
+  ) %>%
+  mutate(
+    min_kb = min_bp / 1000,
+    q1_kb  = q1_bp  / 1000,
+    med_kb = med_bp / 1000,
+    q3_kb  = q3_bp  / 1000,
+    max_kb = max_bp / 1000
+  ) %>%
+  select(n, min_kb, q1_kb, med_kb, q3_kb, max_kb)
+
+size_stats_text <- size_stats %>%
+  mutate(across(-n, ~ round(.x, 1)))  # 0.1 kb precision
+
+methods_sentence <- size_stats_text %>%
+  transmute(
+    sentence = paste0(
+      "Estimated sizes of plasmid constructs produced by MOBsuite  (n = ",
+      n, "; median = ", med_kb, " kb; IQR = ", q1_kb, "–", q3_kb,
+      " kb; range = ", min_kb, "–", max_kb, " kb)."
+    )
+  ) %>%
+  pull(sentence)
+
+methods_sentence
+
+mobtyper_df %>%
+    mutate(size_kb = size / 1000) %>%
+    ggplot(aes(x = size_kb)) +
+    geom_histogram(
+        bins = 50,
+        color = "black",
+        fill = "grey70"
+    ) +
+    scale_x_log10(
+        breaks = c(1, 2, 5, 10, 20, 50, 100, 200, 500),
+        labels = c("1", "2", "5", "10", "20", "50", "100", "200", "500")
+    ) +
+    labs(
+        x = "Plasmid size (kb [log10])",
+        y = "Frequency"
+    ) +
+    theme_classic()
+```
+
