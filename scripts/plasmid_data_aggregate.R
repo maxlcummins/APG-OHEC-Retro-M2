@@ -128,6 +128,8 @@ long_format_plasmid_abritamr_processed <- plasmid_abritamr %>%
         add_count() %>%
         rename("Plasmid_CIA_status" = `CIA_res_status`, "Plasmid_count_of_AMR_genes" = n)
 
+# Expect this step to take a very long time and require a LOT of memory.
+# It is for this reason I have included the output of this script as a file and run it only when the file is missing.
 clusters <- long_format_plasmid_abritamr_processed %>%
         select(sample_id, Plasmid_CIA_status, Plasmid_count_of_AMR_genes) %>%
         unique() %>%
